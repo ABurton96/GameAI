@@ -1,4 +1,5 @@
 ﻿#pragma strict
+import UnityEngine.AI;
 
 public class viewcones 
 {
@@ -13,6 +14,7 @@ enum statuses {patrolling, suspicious, alert};
 public var player: GameObject; 
 public var trigger: SphereCollider; 
 public var alertStatus: statuses;
+public var soundAlertStatus: statuses;
 public var viewconeInfo: viewcones[];
 public var playerDistance: Vector3;
 public var viewAngle: float;
@@ -28,6 +30,10 @@ public var loseSightTimerEnd: float;
 public var currentTime: float;
 public var point: Animator;
 
+public var hearingDistance: float;
+public var nav: UnityEngine.AI.NavMeshAgent;
+public var soundTravelled: float;
+
 function Start () 
 {
 	//Finds player
@@ -41,6 +47,7 @@ function Update ()
 {
 	//Temp. Just to see current scene time in inspector
 	currentTime = Time.time;
+
 }
 
 function OnTriggerStay(other: Collider) 
@@ -49,9 +56,12 @@ function OnTriggerStay(other: Collider)
 	//Checks if player is inside of the trigger
 	if(other.gameObject.tag == "Player")
 	{
+
+		//Sight
+
 		//Calculates an angle from the AI player to the playable character
 		playerDistance = player.transform.position - transform.position;
-		//viewAngle = Vector3.Angle(Vector3.forward, playerDistance);
+		//ViewAngle = Vector3.Angle(Vector3.forward, playerDistance);
 		viewAngle = Vector3.Angle(playerDistance, transform.forward);
 	
 		//Sets playerSeen to false. If it doesnt get set back to true then the player wasn't seen in the last checks.
@@ -94,12 +104,60 @@ function OnTriggerStay(other: Collider)
 				}
 			}
 
-			//if it is the last viewcone being checked and player wasn't seen then set patrolling
+			//If it is the last viewcone being checked and player wasn't seen then set patrolling
 			if(i == viewconeInfo.Length - 1 && !playerSeen)
 			{
 				SetAlert(statuses.patrolling);
 			}
 		}
+
+		//Hearing
+
+		//Checks the distance from the player to the AI
+		if(Vector3.Distance(transform.position, player.transform.position) <= hearingDistance)
+		{
+			//Create variables for navigation
+			var navWaypoints: Vector3[];
+			var navPath: NavMeshPath  = new NavMeshPath();
+
+			//Calculates the path from player to enemy
+			nav.CalculatePath(player.transform.position, navPath);
+
+			//Adds 2 points to the waypoints array. One to add players position and one for AI position.
+			navWaypoints = new Vector3[navPath.corners.Length + 2];
+
+			//Adds positions to array
+			navWaypoints[0] = transform.position;
+			navWaypoints[navWaypoints.Length - 1] = player.transform.position;
+
+
+			//Resets the sound travelled to 0
+			soundTravelled = 0f;
+
+			//Runs through for loop setting array to each corner from navPath calculation
+			for(var j: int = 1; j < navWaypoints.Length - 1; j++)
+			{
+				navWaypoints[j] = navPath.corners[j - 1];
+			}
+
+			//Calculates each of the distances between the point adding to soundTravelled
+			for(var k: int = 0; k < navWaypoints.Length - 1; k++)
+			{
+				soundTravelled += Vector3.Distance(navWaypoints[k], navWaypoints[k + 1]);
+			}
+		}
+
+		//If less that hearingDistance - 10% then alert
+		if(soundTravelled <= hearingDistance - (hearingDistance /10))
+		{
+			soundAlertStatus = statuses.alert;
+		}
+		//If between 90% and 100% of hearing distance then suspicious. Needs to add alert timer.
+		else if(soundTravelled > hearingDistance - (hearingDistance /10) && soundTravelled < hearingDistance)
+		{
+			soundAlertStatus = statuses.suspicious;
+		}
+		// Alert status should check against sight for overall alert status
 	}
 }
 
