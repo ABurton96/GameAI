@@ -13,7 +13,7 @@ enum statuses {patrolling, suspicious, alert};
 
 public var player: GameObject; 
 public var trigger: SphereCollider; 
-public var alertStatus: statuses;
+public var sightalertStatus: statuses;
 public var soundAlertStatus: statuses;
 public var viewconeInfo: viewcones[];
 public var playerDistance: Vector3;
@@ -30,9 +30,16 @@ public var loseSightTimerEnd: float;
 public var currentTime: float;
 public var point: Animator;
 
+public var noAudioTimer: float;
+public var noAudioCheck: boolean;
+public var noAudioTimerEnd: float;
 public var hearingDistance: float;
 public var nav: UnityEngine.AI.NavMeshAgent;
 public var soundTravelled: float;
+public var noMoreNoise: boolean;
+public var suspiciousAudioTimerEnd: float;
+public var suspiciousAudioCheck: boolean;
+
 
 function Start () 
 {
@@ -84,7 +91,7 @@ function OnTriggerStay(other: Collider)
 						//If the player hasn't already been seen then they have been now
 						if(!playerSeen)
 						{
-							SetAlert(viewconeInfo[i].status);
+							SetSightAlert(viewconeInfo[i].status);
 							Debug.Log(viewconeInfo[i].angle);
 							
 							playerSeen = true;
@@ -93,13 +100,12 @@ function OnTriggerStay(other: Collider)
 						//If player has been seen but viewcone is closer to the player then change spotted viewcone
 						else if (playerSeen && viewconeSeen > i)
 						{
-							SetAlert(viewconeInfo[i].status);
+							SetSightAlert(viewconeInfo[i].status);
 							Debug.Log(viewconeInfo[i].angle);
 							
 							playerSeen = true;
 							viewconeSeen = i;
 						}
-
 					}
 				}
 			}
@@ -107,7 +113,7 @@ function OnTriggerStay(other: Collider)
 			//If it is the last viewcone being checked and player wasn't seen then set patrolling
 			if(i == viewconeInfo.Length - 1 && !playerSeen)
 			{
-				SetAlert(statuses.patrolling);
+				SetSightAlert(statuses.patrolling);
 			}
 		}
 
@@ -148,42 +154,46 @@ function OnTriggerStay(other: Collider)
 		}
 
 		//If less that hearingDistance - 10% then alert
-		if(soundTravelled <= hearingDistance - (hearingDistance /10))
+		if(soundTravelled <= hearingDistance - (hearingDistance /10) && player.GetComponent(Player).soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /10) && player.GetComponent(Player).soundLevelAI == "Quite")
 		{
-			soundAlertStatus = statuses.alert;
+			//soundAlertStatus = statuses.alert;
+			Debug.Log("Alert");
+			SetSoundAlert(statuses.alert);
 		}
 		//If between 90% and 100% of hearing distance then suspicious. Needs to add alert timer.
-		else if(soundTravelled > hearingDistance - (hearingDistance /10) && soundTravelled < hearingDistance)
+		else if(soundTravelled > hearingDistance - (hearingDistance /10) && soundTravelled < hearingDistance && player.GetComponent(Player).soundLevelAI == "Loud")
 		{
-			soundAlertStatus = statuses.suspicious;
+			//soundAlertStatus = statuses.suspicious;
+			Debug.Log("Suspicious");
+			SetSoundAlert(statuses.suspicious);
 		}
-		// Alert status should check against sight for overall alert status
+		else
+		{
+			SetSoundAlert(statuses.patrolling);
+		}
 	}
 }
 
-function SetAlert(status: statuses)
+function SetSightAlert(status: statuses)
 {
-
-//Wait for half a second before any decision is made
-	yield WaitForSeconds(0.5);
 
 	//Check inputed function
 	switch(status)
 	{
 		//If status was alert set the AI alert status to alert and make sure that loseSight isn't true
-		case statuses.alert:	alertStatus = status;
+		case statuses.alert:	sightalertStatus = status;
 								loseSightCheck = false;
 								point.SetBool("Alert", true);
 								point.SetBool("Suspicious", false);
 								break;
 		//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
-		case statuses.suspicious:	if(alertStatus == statuses.alert)
+		case statuses.suspicious:	if(sightalertStatus == statuses.alert)
 									{
-										alertStatus = statuses.alert;
+										sightalertStatus = statuses.alert;
 									}
 									else
 									{
-										alertStatus = status;
+										sightalertStatus = status;
 										point.SetBool("Alert", false);
 										point.SetBool("Suspicious", true);
 									}
@@ -195,7 +205,7 @@ function SetAlert(status: statuses)
 									}
 									else if(suspiciousCheck && Time.time > suspiciousTimerEnd)
 									{
-										alertStatus = statuses.alert;
+										sightalertStatus = statuses.alert;
 									}
 									loseSightCheck = false;
 									break;
@@ -205,17 +215,74 @@ function SetAlert(status: statuses)
 										loseSightCheck = true;
 										loseSightTimerEnd = loseSightTimer + Time.time;
 									}
-									else if(alertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
+									else if(sightalertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
 									{
-										alertStatus = statuses.alert;
+										sightalertStatus = statuses.alert;
 									}
 									else
 									{
-										alertStatus = status;
+										sightalertStatus = status;
 										point.SetBool("Alert", false);
 										point.SetBool("Suspicious", false);
 									}
 									suspiciousCheck = false;
 									break;
+	}
+}
+
+function SetSoundAlert(status: statuses)
+{
+
+//Wait for half a second before any decision is made
+	yield WaitForSeconds(0.5);
+
+	//Check inputed function
+	switch(status)
+	{
+		//If status was alert set the AI audio alert status to alert and make sure that no audio is false.
+		case statuses.alert:	soundAlertStatus = status;
+								noAudioCheck = false;
+								break;
+		//Check if the AI is already alert. If not check how long they have been in the the hearable distance for. If more than the check timer then audio status is alert
+		case statuses.suspicious:	if(soundAlertStatus == statuses.alert)
+									{
+										soundAlertStatus = statuses.alert;
+									}
+									else
+									{
+										soundAlertStatus = status;
+									}
+
+									if(!suspiciousAudioCheck)
+									{
+										suspiciousAudioCheck = true;
+										suspiciousAudioTimerEnd = suspiciousTimer + Time.time;
+									}
+									else if(suspiciousAudioCheck && Time.time > suspiciousAudioTimerEnd)
+									{
+										soundAlertStatus = statuses.alert;
+									}
+
+									noAudioCheck = false;
+									break;
+		//If player is no making noise then audio check back to patrolling
+		case statuses.patrolling:	if(!noAudioCheck)
+									{
+										noAudioCheck = true;
+										noAudioTimerEnd = noAudioTimer + Time.time;
+									}
+									else if(soundAlertStatus == statuses.alert && noAudioCheck && Time.time < noAudioTimerEnd)
+									{
+										soundAlertStatus = statuses.alert;
+									}
+									else
+									{
+										soundAlertStatus = status;
+									}
+
+									suspiciousAudioCheck = false;
+									break;
+
+			//Currently audio and sight don't set the same alert status. Will link this up later once other mechanics are in. 
 	}
 }
