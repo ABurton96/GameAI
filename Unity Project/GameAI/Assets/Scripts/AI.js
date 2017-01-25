@@ -1,5 +1,7 @@
 ﻿#pragma strict
 import UnityEngine.AI;
+import UnityEngine.AI.NavMeshAgent;
+import System.Collections.Generic;
 
 public class viewcones 
 {
@@ -15,31 +17,42 @@ public var player: GameObject;
 public var trigger: SphereCollider; 
 public var sightalertStatus: statuses;
 public var soundAlertStatus: statuses;
+public var lastKnownPos: Vector3;
+public var point: Animator;
+public var suspiciousTimer: float;
+public var suspiciousCheck: boolean;
+public var suspiciousTimerEnd: float;
+public var nav: UnityEngine.AI.NavMeshAgent;
+
+@Header(" - Sight variables")
+@Space(10)
 public var viewconeInfo: viewcones[];
 public var playerDistance: Vector3;
 public var viewAngle: float;
 public var hit: RaycastHit;
 public var playerSeen: boolean;
 public var viewconeSeen: int;
-public var suspiciousTimer: float;
-public var suspiciousCheck: boolean;
-public var suspiciousTimerEnd: float;
 public var loseSightTimer: float;
 public var loseSightCheck: boolean;
 public var loseSightTimerEnd: float;
 public var currentTime: float;
-public var point: Animator;
 
+@Header(" - Sound variables")
+@Space(10)
 public var noAudioTimer: float;
 public var noAudioCheck: boolean;
 public var noAudioTimerEnd: float;
 public var hearingDistance: float;
-public var nav: UnityEngine.AI.NavMeshAgent;
 public var soundTravelled: float;
 public var noMoreNoise: boolean;
 public var suspiciousAudioTimerEnd: float;
 public var suspiciousAudioCheck: boolean;
 
+@Space(10)
+@Header(" - Pathing variables")
+public var patrolPointsObj: GameObject[];
+public var patrolPoints: List.<Vector3>;
+public var patrolNumber: int;
 
 function Start () 
 {
@@ -48,6 +61,13 @@ function Start ()
 	
 	//Sets sphere collider to the length of the max viewcone distance
 	trigger.radius = viewconeInfo[viewconeInfo.Length - 1].distance;
+
+	//patrolPoints = patrolPointsObj;
+
+	for(var i: int = 0; i < patrolPointsObj.Length; i++)
+	{
+		patrolPoints.Add(patrolPointsObj[i].transform.position);
+	}
 }
 
 function Update () 
@@ -55,6 +75,8 @@ function Update ()
 	//Temp. Just to see current scene time in inspector
 	currentTime = Time.time;
 
+	//Calls patrol function
+	Patrol();
 }
 
 function OnTriggerStay(other: Collider) 
@@ -186,6 +208,7 @@ function SetSightAlert(status: statuses)
 								point.SetBool("Alert", true);
 								point.SetBool("Suspicious", false);
 								break;
+
 		//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
 		case statuses.suspicious:	if(sightalertStatus == statuses.alert)
 									{
@@ -207,6 +230,8 @@ function SetSightAlert(status: statuses)
 									{
 										sightalertStatus = statuses.alert;
 									}
+
+									lastKnownPos = player.transform.position;
 									loseSightCheck = false;
 									break;
 		//If player is no longer in a viewcone check how long they have not been seen for. If more than lose sight time then set back to partrolling
@@ -264,6 +289,7 @@ function SetSoundAlert(status: statuses)
 									}
 
 									noAudioCheck = false;
+									lastKnownPos = player.transform.position;
 									break;
 		//If player is no making noise then audio check back to patrolling
 		case statuses.patrolling:	if(!noAudioCheck)
@@ -284,5 +310,38 @@ function SetSoundAlert(status: statuses)
 									break;
 
 			//Currently audio and sight don't set the same alert status. Will link this up later once other mechanics are in. 
+	}
+}
+
+//
+function Patrol()
+{
+	//If already patrolling and near waypoint then change to next waypoint. After this then path to next waypoint
+	if(sightalertStatus == statuses.patrolling)
+	{
+		if(Vector3.Distance(patrolPoints.Item[patrolNumber], transform.position) < 5)
+		{
+			patrolNumber ++;
+
+			if(patrolNumber >= patrolPointsObj.Length)
+			{
+				patrolNumber = 0;
+			}
+		}
+
+		nav.speed = 2;
+		nav.SetDestination(patrolPoints.Item[patrolNumber]);
+	}
+	//If suspicious then move to last known position of player
+	else if(sightalertStatus == statuses.suspicious)
+	{
+		nav.speed = 2.5;
+		nav.SetDestination(lastKnownPos);
+	}
+	//If alert then path to player
+	else if(sightalertStatus == statuses.alert)
+	{
+		nav.speed = 3.5;
+		nav.SetDestination(player.transform.position);
 	}
 }
