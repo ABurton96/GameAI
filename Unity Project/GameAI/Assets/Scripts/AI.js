@@ -19,6 +19,7 @@ public var sightalertStatus: statuses;
 public var soundAlertStatus: statuses;
 public var lastKnownPos: Vector3;
 public var point: Animator;
+public var playerAnim: Animator;
 public var suspiciousTimer: float;
 public var suspiciousCheck: boolean;
 public var suspiciousTimerEnd: float;
@@ -50,9 +51,12 @@ public var suspiciousAudioCheck: boolean;
 
 @Space(10)
 @Header(" - Pathing variables")
-public var patrolPointsObj: GameObject[];
+//public var patrolPointsObj: GameObject[];
+public var waypointsGameObj: GameObject;
 public var patrolPoints: List.<Vector3>;
 public var patrolNumber: int;
+public var drawGizmos: boolean;
+public var drawOnce: boolean = true;
 
 function Start () 
 {
@@ -62,11 +66,14 @@ function Start ()
 	//Sets sphere collider to the length of the max viewcone distance
 	trigger.radius = viewconeInfo[viewconeInfo.Length - 1].distance;
 
-	//patrolPoints = patrolPointsObj;
-
-	for(var i: int = 0; i < patrolPointsObj.Length; i++)
+	//Looks through all of the child game objects. If the object is a waypoint then at it to the list of patrol points
+	for(var i: int = 0; i < waypointsGameObj.transform.childCount; i++)
 	{
-		patrolPoints.Add(patrolPointsObj[i].transform.position);
+		if(waypointsGameObj.transform.GetChild(i).tag == "Waypoint")
+		{
+			patrolPoints.Add(waypointsGameObj.transform.GetChild(i).position);
+			waypointsGameObj.transform.GetChild(i).gameObject.SetActive(false);
+		}
 	}
 }
 
@@ -323,25 +330,52 @@ function Patrol()
 		{
 			patrolNumber ++;
 
-			if(patrolNumber >= patrolPointsObj.Length)
+			if(patrolNumber >= patrolPoints.Count)
 			{
 				patrolNumber = 0;
 			}
 		}
 
-		nav.speed = 2;
+		playerAnim.SetBool("Walking", true);
+		playerAnim.SetBool("Running", false);
+		nav.speed = 1.5;
 		nav.SetDestination(patrolPoints.Item[patrolNumber]);
 	}
 	//If suspicious then move to last known position of player
 	else if(sightalertStatus == statuses.suspicious)
 	{
-		nav.speed = 2.5;
+		playerAnim.SetBool("Walking", true);
+		playerAnim.SetBool("Running", false);
+		nav.speed = 1.5;
 		nav.SetDestination(lastKnownPos);
 	}
 	//If alert then path to player
 	else if(sightalertStatus == statuses.alert)
 	{
+		playerAnim.SetBool("Walking", false);
+		playerAnim.SetBool("Running", true);
 		nav.speed = 3.5;
 		nav.SetDestination(player.transform.position);
+	}
+}
+
+function OnDrawGizmos()
+{
+	var num: int = patrolNumber;
+
+	if(drawGizmos)
+	{
+	
+		for(var i: int = 0; i < patrolPoints.Count; i++)
+		{
+			Gizmos.color = Color.blue;
+			Gizmos.DrawSphere(patrolPoints.Item[i], 0.25);
+		}
+
+		if(num != 0)
+		{
+			Gizmos.color = Color.red;
+			Gizmos.DrawSphere(patrolPoints.Item[num], 0.5);
+		}
 	}
 }

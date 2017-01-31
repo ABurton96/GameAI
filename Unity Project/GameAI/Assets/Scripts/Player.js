@@ -24,5 +24,4 @@ function Update ()
 	}
 
 	soundLevelAI = sound.ToString();
-	Debug.Log(soundLevelAI);
 }
