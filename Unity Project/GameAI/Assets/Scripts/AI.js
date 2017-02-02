@@ -51,12 +51,12 @@ public var suspiciousAudioCheck: boolean;
 
 @Space(10)
 @Header(" - Pathing variables")
-//public var patrolPointsObj: GameObject[];
 public var waypointsGameObj: GameObject;
 public var patrolPoints: List.<Vector3>;
 public var patrolNumber: int;
 public var drawGizmos: boolean;
 public var drawOnce: boolean = true;
+public var startPos: Vector3;
 
 function Start () 
 {
@@ -65,6 +65,9 @@ function Start ()
 	
 	//Sets sphere collider to the length of the max viewcone distance
 	trigger.radius = viewconeInfo[viewconeInfo.Length - 1].distance;
+
+	//Gets start position
+	startPos = transform.position;
 
 	//Looks through all of the child game objects. If the object is a waypoint then at it to the list of patrol points
 	for(var i: int = 0; i < waypointsGameObj.transform.childCount; i++)
@@ -79,9 +82,6 @@ function Start ()
 
 function Update () 
 {
-	//Temp. Just to see current scene time in inspector
-	currentTime = Time.time;
-
 	//Calls patrol function
 	Patrol();
 }
@@ -320,42 +320,77 @@ function SetSoundAlert(status: statuses)
 	}
 }
 
-//
+
 function Patrol()
 {
-	//If already patrolling and near waypoint then change to next waypoint. After this then path to next waypoint
-	if(sightalertStatus == statuses.patrolling)
+	//If waypoints are set up then patrol between them
+	if(patrolPoints.Count >= 1)
 	{
-		if(Vector3.Distance(patrolPoints.Item[patrolNumber], transform.position) < 5)
+		//If already patrolling and near waypoint then change to next waypoint. After this then path to next waypoint
+		if(sightalertStatus == statuses.patrolling)
 		{
-			patrolNumber ++;
-
-			if(patrolNumber >= patrolPoints.Count)
+			if(Vector3.Distance(patrolPoints.Item[patrolNumber], transform.position) < 5)
 			{
-				patrolNumber = 0;
-			}
-		}
+				patrolNumber ++;
 
-		playerAnim.SetBool("Walking", true);
-		playerAnim.SetBool("Running", false);
-		nav.speed = 1.5;
-		nav.SetDestination(patrolPoints.Item[patrolNumber]);
+				if(patrolNumber >= patrolPoints.Count)
+				{
+					patrolNumber = 0;
+				}
+			}
+
+			playerAnim.SetBool("Walking", true);
+			playerAnim.SetBool("Running", false);
+			nav.speed = 1.5;
+			nav.SetDestination(patrolPoints.Item[patrolNumber]);
+		}
+		//If suspicious then move to last known position of player
+		else if(sightalertStatus == statuses.suspicious)
+		{
+			playerAnim.SetBool("Walking", true);
+			playerAnim.SetBool("Running", false);
+			nav.speed = 1.5;
+			nav.SetDestination(lastKnownPos);
+		}
+		//If alert then path to player
+		else if(sightalertStatus == statuses.alert)
+		{
+			//TODO This should stop the player from getting too close depeing on weapon type. Once close enough begin shooting.
+			playerAnim.SetBool("Walking", false);
+			playerAnim.SetBool("Running", true);
+			nav.speed = 3.5;
+			nav.SetDestination(player.transform.position);
+		}
 	}
-	//If suspicious then move to last known position of player
-	else if(sightalertStatus == statuses.suspicious)
+	//If no way points are created
+	else
 	{
-		playerAnim.SetBool("Walking", true);
-		playerAnim.SetBool("Running", false);
-		nav.speed = 1.5;
-		nav.SetDestination(lastKnownPos);
-	}
-	//If alert then path to player
-	else if(sightalertStatus == statuses.alert)
-	{
-		playerAnim.SetBool("Walking", false);
-		playerAnim.SetBool("Running", true);
-		nav.speed = 3.5;
-		nav.SetDestination(player.transform.position);
+		if(sightalertStatus == statuses.patrolling)
+		{
+			if(Vector3.Distance(transform.position, startPos) > 5)
+			{
+				nav.SetDestination(startPos);
+			}
+				playerAnim.SetBool("Walking", false);
+				playerAnim.SetBool("Running", false);
+				nav.speed = 1.5;
+		}
+		//If suspicious then move to last known position of player
+		else if(sightalertStatus == statuses.suspicious)
+		{
+			playerAnim.SetBool("Walking", true);
+			playerAnim.SetBool("Running", false);
+			nav.speed = 1.5;
+			nav.SetDestination(lastKnownPos);
+		}
+		//If alert then path to player
+		else if(sightalertStatus == statuses.alert)
+		{
+			playerAnim.SetBool("Walking", false);
+			playerAnim.SetBool("Running", true);
+			nav.speed = 3.5;
+			nav.SetDestination(player.transform.position);
+		}
 	}
 }
 
@@ -363,6 +398,7 @@ function OnDrawGizmos()
 {
 	var num: int = patrolNumber;
 
+	//If gizmos is checked then render them at each patrol point
 	if(drawGizmos)
 	{
 	
@@ -372,6 +408,7 @@ function OnDrawGizmos()
 			Gizmos.DrawSphere(patrolPoints.Item[i], 0.25);
 		}
 
+		//Stops errors from no patrol number
 		if(num != 0)
 		{
 			Gizmos.color = Color.red;
