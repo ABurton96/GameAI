@@ -15,7 +15,8 @@ enum statuses {patrolling, suspicious, alert};
 
 public var player: GameObject; 
 public var trigger: SphereCollider; 
-public var sightalertStatus: statuses;
+public var overallStatus: statuses;
+public var sightAlertStatus: statuses;
 public var soundAlertStatus: statuses;
 public var lastKnownPos: Vector3;
 public var point: Animator;
@@ -38,8 +39,8 @@ public var loseSightCheck: boolean;
 public var loseSightTimerEnd: float;
 public var currentTime: float;
 
-@Header(" - Sound variables")
 @Space(10)
+@Header(" - Sound variables")
 public var noAudioTimer: float;
 public var noAudioCheck: boolean;
 public var noAudioTimerEnd: float;
@@ -57,6 +58,18 @@ public var patrolNumber: int;
 public var drawGizmos: boolean;
 public var drawOnce: boolean = true;
 public var startPos: Vector3;
+
+@Space(10)
+@Header(" - Attacking variables")
+public var shotSpeed: float;
+public var attackDistance: float;
+public var meele: boolean;
+public var shotPosition: Vector3;
+public var shotInAc: float;
+public var lastShot: float;
+public var shooting: boolean;
+public var bullet: GameObject;
+
 
 function Start () 
 {
@@ -84,11 +97,23 @@ function Update ()
 {
 	//Calls patrol function
 	Patrol();
+
+	if(soundAlertStatus == statuses.alert || sightAlertStatus == statuses.alert)
+	{
+		overallStatus = statuses.alert;
+	}
+	else if(soundAlertStatus == statuses.suspicious || sightAlertStatus == statuses.suspicious)
+	{
+		overallStatus = statuses.suspicious;
+	}
+	else if(soundAlertStatus == statuses.patrolling || sightAlertStatus == statuses.patrolling)
+	{
+		overallStatus = statuses.patrolling;
+	}
 }
 
 function OnTriggerStay(other: Collider) 
 {
-
 	//Checks if player is inside of the trigger
 	if(other.gameObject.tag == "Player")
 	{
@@ -108,14 +133,21 @@ function OnTriggerStay(other: Collider)
 			//Checks to see if the player is within the viewcone angle and is close enough
 			if(viewAngle < viewconeInfo[i].angle * 0.5 && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance)
 			{				
+				 var AIPos:Vector3;
+                 AIPos.y += 1.4;
+
+                 var playerPos: Vector3 = player.transform.position;
+                 playerPos.y  = playerPos.y - 1;
 				//Raycasts from the AI to the playable character
+				//if (Physics.Raycast(AIPos, playerPos, hit));
 				if (Physics.Raycast(transform.position, playerDistance.normalized, hit));
 				{
 					//Draws a debug ray inside of the scene view. Only use it to help see where the raycast is going
+					//Debug.DrawRay(transform.position + Vector3(0,1.4,0), playerPos, Color.red);
 					Debug.DrawRay(transform.position, playerDistance.normalized, Color.red);
-				
+
 					//Checks to see if the raycast hits the player. If it doesn't then the player is behind an object
-					if(hit.collider.gameObject.tag == "Player")
+					if(hit.collider != null && hit.collider.gameObject.tag == "Player")
 					{
 						//If the player hasn't already been seen then they have been now
 						if(!playerSeen)
@@ -181,16 +213,20 @@ function OnTriggerStay(other: Collider)
 				soundTravelled += Vector3.Distance(navWaypoints[k], navWaypoints[k + 1]);
 			}
 		}
+		else
+		{
+			soundTravelled = 25;
+		}
 
 		//If less that hearingDistance - 10% then alert
-		if(soundTravelled <= hearingDistance - (hearingDistance /10) && player.GetComponent(Player).soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /10) && player.GetComponent(Player).soundLevelAI == "Quite")
+		if(soundTravelled <= hearingDistance - (hearingDistance / 20) && player.GetComponent(Player).soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /10) && player.GetComponent(Player).soundLevelAI == "Quite")
 		{
 			//soundAlertStatus = statuses.alert;
 			Debug.Log("Alert");
 			SetSoundAlert(statuses.alert);
 		}
 		//If between 90% and 100% of hearing distance then suspicious. Needs to add alert timer.
-		else if(soundTravelled > hearingDistance - (hearingDistance /10) && soundTravelled < hearingDistance && player.GetComponent(Player).soundLevelAI == "Loud")
+		else if(soundTravelled > hearingDistance - (hearingDistance / 10) && soundTravelled < hearingDistance && player.GetComponent(Player).soundLevelAI == "Loud")
 		{
 			//soundAlertStatus = statuses.suspicious;
 			Debug.Log("Suspicious");
@@ -210,20 +246,20 @@ function SetSightAlert(status: statuses)
 	switch(status)
 	{
 		//If status was alert set the AI alert status to alert and make sure that loseSight isn't true
-		case statuses.alert:	sightalertStatus = status;
+		case statuses.alert:	sightAlertStatus = status;
 								loseSightCheck = false;
 								point.SetBool("Alert", true);
 								point.SetBool("Suspicious", false);
 								break;
 
 		//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
-		case statuses.suspicious:	if(sightalertStatus == statuses.alert)
+		case statuses.suspicious:	if(sightAlertStatus == statuses.alert)
 									{
-										sightalertStatus = statuses.alert;
+										sightAlertStatus = statuses.alert;
 									}
 									else
 									{
-										sightalertStatus = status;
+										sightAlertStatus = status;
 										point.SetBool("Alert", false);
 										point.SetBool("Suspicious", true);
 									}
@@ -235,7 +271,7 @@ function SetSightAlert(status: statuses)
 									}
 									else if(suspiciousCheck && Time.time > suspiciousTimerEnd)
 									{
-										sightalertStatus = statuses.alert;
+										sightAlertStatus = statuses.alert;
 									}
 
 									lastKnownPos = player.transform.position;
@@ -247,13 +283,13 @@ function SetSightAlert(status: statuses)
 										loseSightCheck = true;
 										loseSightTimerEnd = loseSightTimer + Time.time;
 									}
-									else if(sightalertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
+									else if(sightAlertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
 									{
-										sightalertStatus = statuses.alert;
+										sightAlertStatus = statuses.alert;
 									}
 									else
 									{
-										sightalertStatus = status;
+										sightAlertStatus = status;
 										point.SetBool("Alert", false);
 										point.SetBool("Suspicious", false);
 									}
@@ -316,10 +352,8 @@ function SetSoundAlert(status: statuses)
 									suspiciousAudioCheck = false;
 									break;
 
-			//Currently audio and sight don't set the same alert status. Will link this up later once other mechanics are in. 
 	}
 }
-
 
 function Patrol()
 {
@@ -327,7 +361,7 @@ function Patrol()
 	if(patrolPoints.Count >= 1)
 	{
 		//If already patrolling and near waypoint then change to next waypoint. After this then path to next waypoint
-		if(sightalertStatus == statuses.patrolling)
+		if(overallStatus == statuses.patrolling)
 		{
 			if(Vector3.Distance(patrolPoints.Item[patrolNumber], transform.position) < 5)
 			{
@@ -345,7 +379,7 @@ function Patrol()
 			nav.SetDestination(patrolPoints.Item[patrolNumber]);
 		}
 		//If suspicious then move to last known position of player
-		else if(sightalertStatus == statuses.suspicious)
+		else if(overallStatus == statuses.suspicious)
 		{
 			playerAnim.SetBool("Walking", true);
 			playerAnim.SetBool("Running", false);
@@ -353,30 +387,42 @@ function Patrol()
 			nav.SetDestination(lastKnownPos);
 		}
 		//If alert then path to player
-		else if(sightalertStatus == statuses.alert)
+		else if(overallStatus == statuses.alert)
 		{
 			//TODO This should stop the player from getting too close depeing on weapon type. Once close enough begin shooting.
-			playerAnim.SetBool("Walking", false);
-			playerAnim.SetBool("Running", true);
-			nav.speed = 3.5;
-			nav.SetDestination(player.transform.position);
+			if(Vector3.Distance(transform.position, player.transform.position) > attackDistance)
+			{
+				playerAnim.SetBool("Walking", false);
+				playerAnim.SetBool("Running", true);
+				nav.speed = 3.5;
+				nav.SetDestination(player.transform.position);
+			}
+			else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
+			{
+				Shoot();
+			}
 		}
 	}
 	//If no way points are created
 	else
 	{
-		if(sightalertStatus == statuses.patrolling)
+		if(overallStatus == statuses.patrolling)
 		{
 			if(Vector3.Distance(transform.position, startPos) > 5)
 			{
 				nav.SetDestination(startPos);
+				playerAnim.SetBool("Walking", true);
+				playerAnim.SetBool("Running", false);
 			}
+			else
+			{
 				playerAnim.SetBool("Walking", false);
 				playerAnim.SetBool("Running", false);
+			}
 				nav.speed = 1.5;
 		}
 		//If suspicious then move to last known position of player
-		else if(sightalertStatus == statuses.suspicious)
+		else if(overallStatus == statuses.suspicious)
 		{
 			playerAnim.SetBool("Walking", true);
 			playerAnim.SetBool("Running", false);
@@ -384,12 +430,19 @@ function Patrol()
 			nav.SetDestination(lastKnownPos);
 		}
 		//If alert then path to player
-		else if(sightalertStatus == statuses.alert)
+		else if(overallStatus == statuses.alert)
 		{
 			playerAnim.SetBool("Walking", false);
 			playerAnim.SetBool("Running", true);
 			nav.speed = 3.5;
 			nav.SetDestination(player.transform.position);
+			Debug.Log("11");
+
+			if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
+			{
+				Shoot();
+			}
+
 		}
 	}
 }
@@ -414,5 +467,21 @@ function OnDrawGizmos()
 			Gizmos.color = Color.red;
 			Gizmos.DrawSphere(patrolPoints.Item[num], 0.5);
 		}
+	}
+}
+
+function Shoot()
+{
+	playerAnim.SetBool("Walking", false);
+	playerAnim.SetBool("Running", false);
+
+	Debug.Log("Shoot");
+
+	if(Time.time >= lastShot + shotSpeed)
+	{
+		Debug.Log("Bullet Shot");
+		shotPosition = transform.position;
+		Instantiate(bullet, shotPosition, transform.rotation);
+		lastShot = Time.time;
 	}
 }
