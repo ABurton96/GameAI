@@ -33,7 +33,3 @@ C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\Temp\bin\Debug\UnityEngin
 C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\obj\Debug\Assembly-CSharp-firstpass.csprojResolveAssemblyReference.cache
 C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\obj\Debug\Assembly-CSharp-firstpass.dll
 C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\obj\Debug\Assembly-CSharp-firstpass.pdb
-C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\Temp\bin\Debug\UnityEngine.Advertisements.dll
-C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\Temp\bin\Debug\UnityEngine.Purchasing.dll
-C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\Temp\bin\Debug\UnityEngine.Advertisements.xml
-C:\Users\Ashley\Desktop\AI\GameAI\Unity Project\GameAI\Temp\bin\Debug\UnityEngine.Purchasing.xml
