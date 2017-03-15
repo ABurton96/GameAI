@@ -19,15 +19,16 @@ public class AI : MonoBehaviour {
 	public GameObject player; 
 	public SphereCollider trigger; 
 	public statuses overallStatus;
-	public statuses sightAlertStatus;
-	public statuses soundAlertStatus;
-	public Vector3 lastKnownPos;
+	private statuses sightAlertStatus;
+	private statuses soundAlertStatus;
+	private Vector3 lastKnownPos;
 	public Animator point;
 	public Animator playerAnim;
 	public float suspiciousTimer;
-	public bool suspiciousCheck;
-	public float suspiciousTimerEnd;
+	private bool suspiciousCheck;
+	private float suspiciousTimerEnd;
 	public UnityEngine.AI.NavMeshAgent nav;
+	public bool aStar;
 
 	[Space(10)]
 	[Header(" - Sight variables")]
@@ -36,11 +37,11 @@ public class AI : MonoBehaviour {
 	public float viewAngle;
 	public RaycastHit hit ;
 	public bool playerSeen;
-	public int viewconeSeen;
+	private int viewconeSeen;
 	public float loseSightTimer;
-	public bool loseSightCheck;
-	public float loseSightTimerEnd;
-	public float currentTime;
+	private bool loseSightCheck;
+	private float loseSightTimerEnd;
+	private float currentTime;
 
 	[Space(10)]
 	[Header(" - Sound variables")]
@@ -48,18 +49,16 @@ public class AI : MonoBehaviour {
 	public bool noAudioCheck;
 	public float noAudioTimerEnd;
 	public float hearingDistance;
-	public float soundTravelled;
-	public bool noMoreNoise;
-	public float suspiciousAudioTimerEnd;
-	public bool suspiciousAudioCheck;
+	private float soundTravelled;
+	private bool noMoreNoise;
+	private float suspiciousAudioTimerEnd;
+	private bool suspiciousAudioCheck;
 
 	[Space(10)]
 	[Header(" - Pathing variables")]
 	public GameObject waypointsGameObj;
 	public List<Vector3> patrolPoints;
 	public int patrolNumber;
-	public bool drawGizmos;
-	public bool drawOnce = true;
 	public Vector3 startPos;
 
 	[Space(10)]
@@ -69,9 +68,14 @@ public class AI : MonoBehaviour {
 	public bool meele;
 	public Vector3 shotPosition;
 	public float shotInAc;
-	public float lastShot;
-	public bool shooting;
+	private float lastShot;
+	public float reloadTime;
+	private float finishReloading;
+	public int bulletMag;
+	private int currentMag;
+	private bool shooting;
 	public GameObject bullet;
+	private bool reloading;
 
 	void Start () 
 	{
@@ -362,6 +366,8 @@ public class AI : MonoBehaviour {
 
 	void Patrol()
 	{
+		AStar aStarPath2 = GetComponent<AStar>();
+
 		//If waypoints are set up then patrol between them
 		if(patrolPoints.Count >= 1)
 		{
@@ -381,7 +387,10 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				nav.SetDestination(patrolPoints[patrolNumber]);
+				if(!aStar)
+					nav.SetDestination(patrolPoints[patrolNumber]);
+				else
+					aStarPath2.targetPosition = patrolPoints[patrolNumber];
 			}
 			//If suspicious then move to last known position of player
 			else if(overallStatus == statuses.suspicious)
@@ -389,7 +398,10 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				nav.SetDestination(lastKnownPos);
+				if(!aStar)
+					nav.SetDestination(lastKnownPos);
+				else
+					aStarPath2.targetPosition = lastKnownPos;
 			}
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
@@ -400,7 +412,10 @@ public class AI : MonoBehaviour {
 					playerAnim.SetBool("Walking", false);
 					playerAnim.SetBool("Running", true);
 					nav.speed = 3.5f;
-					nav.SetDestination(player.transform.position);
+					if(!aStar)
+						nav.SetDestination(player.transform.position);
+					else
+						aStarPath2.targetPosition = player.transform.position;
 				}
 				else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
 				{
@@ -432,7 +447,10 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				nav.SetDestination(lastKnownPos);
+				if(!aStar)
+					nav.SetDestination(lastKnownPos);
+				else
+					aStarPath2.targetPosition = lastKnownPos;
 			}
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
@@ -440,36 +458,16 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", false);
 				playerAnim.SetBool("Running", true);
 				nav.speed = 3.5f;
-				nav.SetDestination(player.transform.position);
+				if(!aStar)
+					nav.SetDestination(player.transform.position);
+				else
+					aStarPath2.targetPosition = player.transform.position;
 
-				if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
+				if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance)
 				{
 					Shoot();
 				}
 
-			}
-		}
-	}
-
-	void OnDrawGizmos()
-	{
-		int num = patrolNumber;
-
-		//If gizmos is checked then render them at each patrol point
-		if(drawGizmos)
-		{
-
-			for(int i = 0; i < patrolPoints.Count; i++)
-			{
-				Gizmos.color = Color.blue;
-				Gizmos.DrawSphere(patrolPoints[i], 0.25f);
-			}
-
-			//Stops errors from no patrol number
-			if(num != 0)
-			{
-				Gizmos.color = Color.red;
-				Gizmos.DrawSphere(patrolPoints[num], 0.5f);
 			}
 		}
 	}
@@ -479,14 +477,39 @@ public class AI : MonoBehaviour {
 		playerAnim.SetBool("Walking", false);
 		playerAnim.SetBool("Running", false);
 
-		Debug.Log("Shoot");
-
-		if(Time.time >= lastShot + shotSpeed)
+		//Checks if you can see the player
+		if(playerSeen)
 		{
-			Debug.Log("Bullet Shot");
-			shotPosition = transform.position;
-			Instantiate(bullet, shotPosition, transform.rotation);
-			lastShot = Time.time;
+			//Is there bullets in the mag
+			if(currentMag > 0)
+			{
+				//Adds small delay to the next shot and creates a bullet
+				if(Time.time >= lastShot + shotSpeed)
+				{
+					shotPosition = transform.position;
+					Instantiate(bullet, shotPosition, transform.rotation);
+					lastShot = Time.time;
+					currentMag --;
+					shooting = true;
+				}
+			}
+			//If no bullets in mag and not reloading then start reloading
+			else if(!reloading)
+			{
+				reloading = true;
+				finishReloading = Time.time + reloadTime;
+			}
+			//If reloading stop reloading after reload time
+			else if(reloading && Time.time >= finishReloading)
+			{
+				reloading = false;
+				currentMag = bulletMag;
+			}
+		}
+		//If raycast isn't directly hitting player contnue shooting for a short period then stop
+		else if(shooting && lastShot + 2  < Time.time)
+		{
+			shooting = false;
 		}
 	}
 }

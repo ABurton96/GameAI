@@ -11,6 +11,7 @@ public class AStar : MonoBehaviour {
     public Vector2 pathSize;
 	Node[,] nodes;
 	public GameObject player;
+	public Vector3 targetPosition;
 	public Vector3 playerPosRounded;
 	public Vector3 other;
 	List<Node> path = new List<Node>();
@@ -157,7 +158,7 @@ public class AStar : MonoBehaviour {
 	{
 		//Finds the start and end node
 		Node startNode = GetClosestNode(transform.position);
-		Node endNode = GetClosestNode(player.transform.position);
+		Node endNode = GetClosestNode(targetPosition);
 
 		List<Node> openNodes = new List<Node>();
 		List<Node> closedNodes = new List<Node>();
