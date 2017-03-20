@@ -11,6 +11,7 @@ public class AStar : MonoBehaviour {
     public Vector2 pathSize;
 	Node[,] nodes;
 	public GameObject player;
+	public GameObject AI;
 	public Vector3 targetPosition;
 	public Vector3 playerPosRounded;
 	public Vector3 other;
@@ -82,16 +83,18 @@ public class AStar : MonoBehaviour {
 
 	public void Update()
 	{
-		//Gets path needed
-		GetPath();
+		AI aStarOn = AI.GetComponent<AI>();
+		if(aStarOn.aStar)
+			GetPath();
 	}
 
 	void OnDrawGizmos()
 	{
+		Gizmos.DrawWireCube(transform.position, new Vector3(pathSize.x, 1, pathSize.y));
+
 		//If the game is playing draw gizmos showing the path and where can/can't be walked
 		if(Application.isPlaying)
 		{
-			Gizmos.DrawWireCube(transform.position, new Vector3(pathSize.x, 1, pathSize.y));
 			Node nearestNode = GetClosestNode(player.transform.position);
 
 			if (nodes != null)
