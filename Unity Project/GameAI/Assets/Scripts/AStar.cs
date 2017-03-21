@@ -5,21 +5,25 @@ using UnityEngine;
 public class AStar : MonoBehaviour {
 
     public LayerMask unwalkableMask;
+	public LayerMask stairMask;
+	public LayerMask walkableMask;
     public float nodeSize;
     public float totalNodesX;
     public float totalNodesY;
-    public Vector2 pathSize;
-	Node[,] nodes;
+	public float totalNodesZ;
+	public Vector3 pathSize;
+	public Node[,,] nodes;
 	public GameObject player;
 	public GameObject AI;
 	public Vector3 targetPosition;
 	public Vector3 playerPosRounded;
 	public Vector3 other;
-	List<Node> path = new List<Node>();
+	public List<Node> path = new List<Node>();
 
 	public class Node
 	{
 		public bool walkable;
+		public bool active;
 		public Vector3 position;
 
 		public int hCost;
@@ -27,6 +31,7 @@ public class AStar : MonoBehaviour {
 
 		public int xposition;
 		public int yposition;
+		public int zposition;
 
 		public Node previousNode;
 
@@ -35,13 +40,23 @@ public class AStar : MonoBehaviour {
 			return gCost + hCost;
 		}
 
-		public Node(bool walk, Vector3 pos, int xPos, int yPos)
+		public Node(bool walk, Vector3 pos, int xPos, int yPos, int zPos)
 		{
 			walkable = walk;
 			position = pos;
 			xposition = xPos;
 			yposition = yPos;
+			zposition = zPos;
+		}
 
+		public Node(bool walk, Vector3 pos, int xPos, int yPos, int zPos, bool act)
+		{
+			walkable = walk;
+			position = pos;
+			xposition = xPos;
+			yposition = yPos;
+			zposition = zPos;
+			active = act;
 		}
 	}
 
@@ -50,6 +65,7 @@ public class AStar : MonoBehaviour {
 		//Calculates total amount of nodes needed
         totalNodesX = pathSize.x / nodeSize;
         totalNodesY = pathSize.y / nodeSize;
+		totalNodesZ = pathSize.z / nodeSize;
 
 		//Finds where the grid will start to generate
 		Vector3 botLeft;
@@ -57,7 +73,7 @@ public class AStar : MonoBehaviour {
         botLeft.y = transform.position.x - pathSize.y / 2;
 
 		//Sets the amount of nodes for the array
-		nodes = new Node[int.Parse(totalNodesX.ToString()),int.Parse(totalNodesY.ToString())];
+		nodes = new Node[int.Parse(totalNodesX.ToString()),int.Parse(totalNodesY.ToString()), int.Parse(totalNodesZ.ToString())];
 
 
 		//Generates all the nodes checking if the node is blocked by any objects
@@ -65,18 +81,45 @@ public class AStar : MonoBehaviour {
         {
             for (int j = 0; j < totalNodesY; j++)
             {
-                Vector3 position = transform.position;
-				position.x = (botLeft.x + nodeSize * i + 1);
-                position.y = transform.position.y;
-				position.z = (botLeft.y + nodeSize * j + 1);
-                bool canWalk = true;
+				for (int k = 0; k < totalNodesZ; k++)
+				{
+	                Vector3 position = transform.position;
+					position.x = (botLeft.x + nodeSize * i + 1);
+					position.y = transform.position.y + k * nodeSize;
+					position.z = (botLeft.y + nodeSize * j + 1);
 
-                if(Physics.CheckSphere(position, nodeSize, unwalkableMask))
-                {
-                    canWalk = false;
-                }
+	                bool canWalk = true;
 
-				nodes[i,j] = new Node(canWalk, position, i, j);
+	                if(Physics.CheckSphere(position, nodeSize, unwalkableMask))
+	                {
+	                    canWalk = false;
+						nodes[i,j,k] = new Node(canWalk, position, i, j, k, true);
+	                }
+					else if(Physics.CheckSphere(position, nodeSize / 2, stairMask))
+					{
+						nodes[i,j,k] = new Node(canWalk, position, i, j, k, true);
+
+						if(k > 0)
+						{
+							if(nodes[i,j,k - 1].active && nodes[i,j,k].active)
+							{
+								nodes[i,j,k - 1].active = false;
+							}
+						}
+					}
+					else if(Physics.CheckSphere(position, nodeSize, walkableMask))
+					{
+						nodes[i,j,k] = new Node(canWalk, position, i, j, k, true);
+					}
+					else
+					{
+						nodes[i,j,k] = new Node(canWalk, position, i, j, k, false);
+					}
+
+
+					Debug.DrawRay(new Vector3(position.x, position.y, position.z), Vector3.down, Color.red);
+
+				}
             }
         }
     }
@@ -132,7 +175,9 @@ public class AStar : MonoBehaviour {
 					{
 						Gizmos.color = Color.blue;
 					}
-					Gizmos.DrawCube(node.position, Vector3.one * (nodeSize - 0.1f));
+
+					if(node.active)
+						Gizmos.DrawCube(node.position, Vector3.one * (nodeSize - 0.1f));
 				}
 			}
 		}
@@ -140,17 +185,20 @@ public class AStar : MonoBehaviour {
 
 	public Node GetClosestNode(Vector3 playerPos)
 	{
-		Node nearest = new Node(false, new Vector3(100000,100000,100000), 0 ,0);
+		Node nearest = new Node(false, new Vector3(100000,100000,100000), 0 , 0, 0);
 		double nearestDiff = 10000000000;
 
 		//Checks all the nodes finding the closes node to the inputed vector3
 		foreach (var node in nodes) 
 		{
-			float diff = Vector3.Distance(node.position, playerPos);
-			if(diff < nearestDiff)
+			if(node.active)
 			{
-				nearest = node;
-				nearestDiff = diff;
+				float diff = Vector3.Distance(node.position, playerPos);
+				if(diff < nearestDiff)
+				{
+					nearest = node;
+					nearestDiff = diff;
+				}
 			}
 		}
 
@@ -187,7 +235,7 @@ public class AStar : MonoBehaviour {
 			if(currentNode == endNode)
 			{
 			
-				//Removes any path that was there before and add all the nodes for the next path
+				//Removes any path that xwas there before and add all the nodes for the next path
 				path.Clear();
 				
 				while(currentNode != startNode)
@@ -232,6 +280,9 @@ public class AStar : MonoBehaviour {
 		//If there is still a path move the game object to the next node
 		if(path.Count > 0)
 		{
+			Vector3 targetPos = path[0].position - transform.position;
+			Vector3 direction = Vector3.RotateTowards(transform.forward, targetPos, 1, 0.0f);
+			transform.rotation = Quaternion.LookRotation(direction);
 			transform.position = Vector3.Lerp(transform.position, path[0].position, 0.05f);
 		}
 	}
@@ -245,17 +296,24 @@ public class AStar : MonoBehaviour {
 		{
 			for (int j = -1; j <= 1; j++) 
 			{
-				if(i == 0 && j == 0)
+				for (int k = -1; k <= 1; k++) 
 				{
-					continue;
-				}
-					
-				int x = node.xposition + i;
-				int y = node.yposition + j;
+					if(i == 0 && j == 0 && k == 0)
+					{
+						continue;
+					}
+						
+					int x = node.xposition + i;
+					int y = node.yposition + j;
+					int z = node.zposition + k;
 
-				if(x >= 0 && x < totalNodesX && y >= 0 && y < totalNodesY)
-				{
-					neighbours.Add(nodes[x,y]);
+					if(x >= 0 && x < totalNodesX && y >= 0 && y < totalNodesY && z >= 0 && z < totalNodesZ)
+					{
+						if(nodes[x,y,z].active)
+						{
+							neighbours.Add(nodes[x,y,z]);
+						}
+					}
 				}
 			}
 		}
