@@ -29,6 +29,7 @@ public class AI : MonoBehaviour {
 	private float suspiciousTimerEnd;
 	public UnityEngine.AI.NavMeshAgent nav;
 	public bool aStar;
+	public Transform eyePos;
 
 	[Space(10)]
 	[Header(" - Sight variables")]
@@ -49,7 +50,7 @@ public class AI : MonoBehaviour {
 	public bool noAudioCheck;
 	public float noAudioTimerEnd;
 	public float hearingDistance;
-	private float soundTravelled;
+	public float soundTravelled;
 	private bool noMoreNoise;
 	private float suspiciousAudioTimerEnd;
 	private bool suspiciousAudioCheck;
@@ -77,11 +78,11 @@ public class AI : MonoBehaviour {
 	public GameObject bullet;
 	private bool reloading;
 
+	public Vector3 pos;
+
+
 	void Start () 
 	{
-		//Finds player
-		//player = GameObject.FindGameObjectWithTag("Player");
-
 		//Sets sphere collider to the length of the max viewcone distance
 		trigger.radius = viewconeInfo[viewconeInfo.Length - 1].distance;
 
@@ -116,8 +117,12 @@ public class AI : MonoBehaviour {
 		{
 			overallStatus = statuses.patrolling;
 		}
-	}
 
+		AStar aStarPath = GetComponent<AStar>();
+		aStarPath.playerSeen = playerSeen;
+
+
+	}
 
 	void OnTriggerStay(Collider other) 
 	{
@@ -141,16 +146,21 @@ public class AI : MonoBehaviour {
 				if(viewAngle < viewconeInfo[i].angle * 0.5f && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance)
 				{				
 					Vector3 AIPos = new Vector3(0,0,0);
-					AIPos.y += 1.4f;
+					AIPos = transform.position;
+					AIPos.y = 1f;
 
-					Vector3 playerPos = player.transform.position;
-					playerPos.y  = playerPos.y - 1;
+					Vector3 norm;
+					norm = playerDistance.normalized;
+					norm.y = (norm.y - norm.y) - 0.1f;
+
 					//Raycasts from the AI to the playable character
-					//if (Physics.Raycast(AIPos, playerPos, hit));
-					if (Physics.Raycast(transform.position, playerDistance.normalized, out hit))
+					//if (Physics.Raycast(transform.position, playerDistance.normalized, out hit))
+					if (Physics.Raycast(AIPos, norm, out hit))
 					{
 						//Draws a debug ray inside of the scene view. Only use it to help see where the raycast is going
-						Debug.DrawRay(transform.position, playerDistance.normalized, Color.red);
+						Debug.DrawRay(transform.position, playerDistance.normalized, Color.blue);
+						Debug.DrawRay(AIPos, norm, Color.red);
+						//Debug.DrawRay(AIPos, playerPos.normalized, Color.red);
 
 						//Checks to see if the raycast hits the player. If it doesn't then the player is behind an object
 						if(hit.collider != null && hit.collider.gameObject.tag == "Player")
@@ -189,35 +199,44 @@ public class AI : MonoBehaviour {
 			//Checks the distance from the player to the AI
 			if(Vector3.Distance(transform.position, player.transform.position) <= hearingDistance)
 			{
-				//Create variables for navigation
-				Vector3[] navWaypoints;
-				NavMeshPath navPath = new NavMeshPath();
-
-				//Calculates the path from player to enemy
-				nav.CalculatePath(player.transform.position, navPath);
-
-				//Adds 2 points to the waypoints array. One to add players position and one for AI position.
-				navWaypoints = new Vector3[navPath.corners.Length + 2];
-
-				//Adds positions to array
-				navWaypoints[0] = transform.position;
-				navWaypoints[navWaypoints.Length - 1] = player.transform.position;
-
-
-				//Resets the sound travelled to 0
-				soundTravelled = 0f;
-
-				//Runs through for loop setting array to each corner from navPath calculation
-				for(int j = 1; j < navWaypoints.Length - 1; j++)
+				if(!aStar)
 				{
-					navWaypoints[j] = navPath.corners[j - 1];
-				}
+					//Create variables for navigation
+					Vector3[] navWaypoints;
+					NavMeshPath navPath = new NavMeshPath();
 
-				//Calculates each of the distances between the point adding to soundTravelled
-				for(int k = 0; k < navWaypoints.Length - 1; k++)
-				{
-					soundTravelled += Vector3.Distance(navWaypoints[k], navWaypoints[k + 1]);
+					//Calculates the path from player to enemy
+					nav.CalculatePath(player.transform.position, navPath);
+
+					//Adds 2 points to the waypoints array. One to add players position and one for AI position.
+					navWaypoints = new Vector3[navPath.corners.Length + 2];
+
+					//Adds positions to array
+					navWaypoints[0] = transform.position;
+					navWaypoints[navWaypoints.Length - 1] = player.transform.position;
+
+
+					//Resets the sound travelled to 0
+					soundTravelled = 0f;
+
+					//Runs through for loop setting array to each corner from navPath calculation
+					for(int j = 1; j < navWaypoints.Length - 1; j++)
+					{
+						navWaypoints[j] = navPath.corners[j - 1];
+					}
+					
+					//Calculates each of the distances between the point adding to soundTravelled
+					for(int k = 0; k < navWaypoints.Length - 1; k++)
+					{
+						soundTravelled += Vector3.Distance(navWaypoints[k], navWaypoints[k + 1]);
+					}
 				}
+				else
+				{
+					AStar aStarPath = GetComponent<AStar>();
+					soundTravelled = aStarPath.GetPathDistance(transform.position, player.transform.position);
+				}
+					
 			}
 			else
 			{
@@ -308,10 +327,6 @@ public class AI : MonoBehaviour {
 
 	void SetSoundAlert(statuses status)
 	{
-
-		//Wait for half a second before any decision is made
-		//yield return new WaitForSeconds(0.5f);
-
 		//Check inputed function
 		switch(status)
 		{
@@ -430,7 +445,11 @@ public class AI : MonoBehaviour {
 			{
 				if(Vector3.Distance(transform.position, startPos) > 5)
 				{
-					nav.SetDestination(startPos);
+					if(!aStar)
+						nav.SetDestination(startPos);
+					else
+						aStarPath2.targetPosition = startPos;
+
 					playerAnim.SetBool("Walking", true);
 					playerAnim.SetBool("Running", false);
 				}

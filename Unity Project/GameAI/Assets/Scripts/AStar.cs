@@ -19,6 +19,8 @@ public class AStar : MonoBehaviour {
 	public Vector3 playerPosRounded;
 	public Vector3 other;
 	public List<Node> path = new List<Node>();
+	public bool playerSeen;
+	public bool drawGizmos;
 
 	public class Node
 	{
@@ -107,9 +109,17 @@ public class AStar : MonoBehaviour {
 							}
 						}
 					}
-					else if(Physics.CheckSphere(position, nodeSize, walkableMask))
+					else if(Physics.CheckSphere(position, nodeSize/2, walkableMask))
 					{
 						nodes[i,j,k] = new Node(canWalk, position, i, j, k, true);
+
+						if(k > 0)
+						{
+							if(nodes[i,j,k - 1].active && nodes[i,j,k].active)
+							{
+								nodes[i,j,k - 1].active = false;
+							}
+						}
 					}
 					else
 					{
@@ -128,7 +138,7 @@ public class AStar : MonoBehaviour {
 	{
 		AI aStarOn = AI.GetComponent<AI>();
 		if(aStarOn.aStar)
-			GetPath();
+			GetPath(GetClosestNode(targetPosition), GetClosestNode(transform.position), true);
 	}
 
 	void OnDrawGizmos()
@@ -136,7 +146,7 @@ public class AStar : MonoBehaviour {
 		Gizmos.DrawWireCube(transform.position, new Vector3(pathSize.x, 1, pathSize.y));
 
 		//If the game is playing draw gizmos showing the path and where can/can't be walked
-		if(Application.isPlaying)
+		if(Application.isPlaying && drawGizmos)
 		{
 			Node nearestNode = GetClosestNode(player.transform.position);
 
@@ -166,6 +176,7 @@ public class AStar : MonoBehaviour {
 					{
 						Gizmos.color = Color.red;
 					}
+
 					if(path.Contains(node))
 					{
 						Gizmos.color = Color.grey;
@@ -205,11 +216,11 @@ public class AStar : MonoBehaviour {
 			return nearest;
 	}
 
-	public void GetPath()
+	public float GetPath(Node end, Node start, bool move)
 	{
 		//Finds the start and end node
-		Node startNode = GetClosestNode(transform.position);
-		Node endNode = GetClosestNode(targetPosition);
+		Node startNode = start;
+		Node endNode = end;
 
 		List<Node> openNodes = new List<Node>();
 		List<Node> closedNodes = new List<Node>();
@@ -272,7 +283,20 @@ public class AStar : MonoBehaviour {
 		}
 
 		//Once path has been checked start to move
-		Move();
+		if(move)
+			Move();
+		else
+		{
+			float soundTravelled = 0f;
+
+			for(int k = 0; k < path.Count - 1; k++)
+			{
+				soundTravelled += Vector3.Distance(path[k].position, path[k + 1].position);
+			}
+			return soundTravelled;
+		}
+
+		return 0f;
 	}
 
 	public void Move()
@@ -281,8 +305,15 @@ public class AStar : MonoBehaviour {
 		if(path.Count > 0)
 		{
 			Vector3 targetPos = path[0].position - transform.position;
-			Vector3 direction = Vector3.RotateTowards(transform.forward, targetPos, 1, 0.0f);
-			transform.rotation = Quaternion.LookRotation(direction);
+			//Vector3 direction = Vector3.RotateTowards(transform.forward, targetPos, 0.5f, 2.0f);
+
+			Quaternion direction;
+			//if(playerSeen)
+			//	direction = Quaternion.LookRotation((player.transform.position + new Vector3(0,-0.6426952f,0)) - transform.position);
+			//else
+				direction = Quaternion.LookRotation(path[0].position - transform.position);
+			
+			transform.rotation = Quaternion.Lerp(transform.rotation, direction, 1);
 			transform.position = Vector3.Lerp(transform.position, path[0].position, 0.05f);
 		}
 	}
@@ -335,5 +366,13 @@ public class AStar : MonoBehaviour {
 		{
 			return 14 * xDistance + 10 * (yDistance - xDistance);
 		}
+	}
+
+	//Returns the total path distance
+	public float GetPathDistance(Vector3 startPosition, Vector3 endPosition)
+	{
+		float pathDistance;
+		pathDistance = GetPath(GetClosestNode(startPosition), GetClosestNode(endPosition), false);
+		return pathDistance;
 	}
 }
