@@ -64,22 +64,15 @@ public class AI : MonoBehaviour {
 
 	[Space(10)]
 	[Header(" - Attacking variables")]
-	public float shotSpeed;
+	public float attackSpeed;
 	public float attackDistance;
-	public bool meele;
-	public Vector3 shotPosition;
-	public float shotInAc;
-	private float lastShot;
-	public float reloadTime;
-	private float finishReloading;
-	public int bulletMag;
-	private int currentMag;
-	private bool shooting;
-	public GameObject bullet;
-	private bool reloading;
+	public float lastAttack;
+	public float health = 100;
+	public bool dead;
 
+	public CapsuleCollider capCol;
+	public GameObject sword;
 	public Vector3 pos;
-
 
 	void Start () 
 	{
@@ -98,8 +91,10 @@ public class AI : MonoBehaviour {
 				waypointsGameObj.transform.GetChild(i).gameObject.SetActive(false);
 			}
 		}
-	}
+
 	
+	}
+
 	void Update () 
 	{
 		//Calls patrol function
@@ -118,10 +113,20 @@ public class AI : MonoBehaviour {
 			overallStatus = statuses.patrolling;
 		}
 
-		AStar aStarPath = GetComponent<AStar>();
-		aStarPath.playerSeen = playerSeen;
+		if(health <= 0 && !dead)
+		{
+			Dead();
+		}
+	}
 
-
+	void Dead()
+	{
+		dead = true;
+		playerAnim.enabled = false;
+		capCol.enabled = false;
+		//sword.transform.parent = null;
+		if(!aStar)
+			nav.SetDestination(transform.position);
 	}
 
 	void OnTriggerStay(Collider other) 
@@ -129,7 +134,6 @@ public class AI : MonoBehaviour {
 		//Checks if player is inside of the trigger
 		if(other.gameObject.tag == "Player")
 		{
-
 			//Sight
 
 			//Calculates an angle from the AI player to the playable character
@@ -142,8 +146,9 @@ public class AI : MonoBehaviour {
 			//Starts a for loop running through each viewcone
 			for(int i = 0; i < viewconeInfo.Length; i++)
 			{	
+
 				//Checks to see if the player is within the viewcone angle and is close enough
-				if(viewAngle < viewconeInfo[i].angle * 0.5f && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance)
+				if(viewAngle < viewconeInfo[i].angle * 0.5f && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance || Vector3.Distance(transform.position, player.transform.position) < 3)
 				{				
 					Vector3 AIPos = new Vector3(0,0,0);
 					AIPos = transform.position;
@@ -266,6 +271,14 @@ public class AI : MonoBehaviour {
 		}
 	}
 
+	void OnCollisionStay(Collision other)
+	{
+		if(other.gameObject.tag == "Player)")
+		{
+			SetSightAlert(statuses.alert);
+		}
+	}
+
 	void SetSightAlert(statuses status)
 	{
 
@@ -273,55 +286,59 @@ public class AI : MonoBehaviour {
 		switch(status)
 		{
 		//If status was alert set the AI alert status to alert and make sure that loseSight isn't true
-		case statuses.alert:	sightAlertStatus = status;
+		case statuses.alert:	
+			sightAlertStatus = status;
 			loseSightCheck = false;
 			point.SetBool("Alert", true);
 			point.SetBool("Suspicious", false);
 			break;
 
 			//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
-		case statuses.suspicious:	if(sightAlertStatus == statuses.alert)
+		case statuses.suspicious:	
+			if(sightAlertStatus == statuses.alert)
 			{
 				sightAlertStatus = statuses.alert;
 			}
-		else
-		{
-			sightAlertStatus = status;
-			point.SetBool("Alert", false);
-			point.SetBool("Suspicious", true);
-		}
+			else
+			{
+				sightAlertStatus = status;
+				point.SetBool("Alert", false);
+				point.SetBool("Suspicious", true);
+			}
 
-		if(!suspiciousCheck)
-		{
-			suspiciousCheck = true;
-			suspiciousTimerEnd = suspiciousTimer + Time.time;
-		}
-		else if(suspiciousCheck && Time.time > suspiciousTimerEnd)
-		{
-			sightAlertStatus = statuses.alert;
-		}
+			if(!suspiciousCheck)
+			{
+				suspiciousCheck = true;
+				suspiciousTimerEnd = suspiciousTimer + Time.time;
+			}
+			else if(suspiciousCheck && Time.time > suspiciousTimerEnd)
+			{
+				sightAlertStatus = statuses.alert;
+			}
 
-		lastKnownPos = player.transform.position;
-		loseSightCheck = false;
-		break;
+			lastKnownPos = player.transform.position;
+			loseSightCheck = false;
+
+			break;
 		//If player is no longer in a viewcone check how long they have not been seen for. If more than lose sight time then set back to partrolling
-		case statuses.patrolling:	if(!loseSightCheck)
+		case statuses.patrolling:	
+			if(!loseSightCheck)
 			{
 				loseSightCheck = true;
 				loseSightTimerEnd = loseSightTimer + Time.time;
 			}
-		else if(sightAlertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
-		{
-			sightAlertStatus = statuses.alert;
-		}
-		else
-		{
-			sightAlertStatus = status;
-			point.SetBool("Alert", false);
-			point.SetBool("Suspicious", false);
-		}
-		suspiciousCheck = false;
-		break;
+			else if(sightAlertStatus == statuses.alert && loseSightCheck && Time.time < loseSightTimerEnd)
+			{
+				sightAlertStatus = statuses.alert;
+			}
+			else
+			{
+				sightAlertStatus = status;
+				point.SetBool("Alert", false);
+				point.SetBool("Suspicious", false);
+			}
+			suspiciousCheck = false;
+			break;
 		}
 	}
 
@@ -331,53 +348,54 @@ public class AI : MonoBehaviour {
 		switch(status)
 		{
 		//If status was alert set the AI audio alert status to alert and make sure that no audio is false.
-		case statuses.alert:	soundAlertStatus = status;
+		case statuses.alert:	
+			soundAlertStatus = status;
 			noAudioCheck = false;
 			break;
 			//Check if the AI is already alert. If not check how long they have been in the the hearable distance for. If more than the check timer then audio status is alert
-		case statuses.suspicious:	if(soundAlertStatus == statuses.alert)
+		case statuses.suspicious:	
+			if(soundAlertStatus == statuses.alert)
 			{
 				soundAlertStatus = statuses.alert;
 			}
 		else
-		{
-			soundAlertStatus = status;
-		}
+			{
+				soundAlertStatus = status;
+			}
 
-		if(!suspiciousAudioCheck)
-		{
-			suspiciousAudioCheck = true;
-			suspiciousAudioTimerEnd = suspiciousTimer + Time.time;
-		}
-		else if(suspiciousAudioCheck && Time.time > suspiciousAudioTimerEnd)
-		{
-			soundAlertStatus = statuses.alert;
-		}
+			if(!suspiciousAudioCheck)
+			{
+				suspiciousAudioCheck = true;
+				suspiciousAudioTimerEnd = suspiciousTimer + Time.time;
+			}
+			else if(suspiciousAudioCheck && Time.time > suspiciousAudioTimerEnd)
+			{
+				soundAlertStatus = statuses.alert;
+			}
 
-		noAudioCheck = false;
-		lastKnownPos = player.transform.position;
-		break;
+			noAudioCheck = false;
+			lastKnownPos = player.transform.position;
+			break;
 		//If player is no making noise then audio check back to patrolling
-		case statuses.patrolling:	if(!noAudioCheck)
+		case statuses.patrolling:	
+			if(!noAudioCheck)
 			{
 				noAudioCheck = true;
 				noAudioTimerEnd = noAudioTimer + Time.time;
 			}
-		else if(soundAlertStatus == statuses.alert && noAudioCheck && Time.time < noAudioTimerEnd)
-		{
-			soundAlertStatus = statuses.alert;
-		}
-		else
-		{
-			soundAlertStatus = status;
-		}
+			else if(soundAlertStatus == statuses.alert && noAudioCheck && Time.time < noAudioTimerEnd)
+			{
+				soundAlertStatus = statuses.alert;
+			}
+			else
+			{
+				soundAlertStatus = status;
+			}
 
-		suspiciousAudioCheck = false;
-		break;
-
+			suspiciousAudioCheck = false;
+			break;
 		}
 	}
-
 
 	void Patrol()
 	{
@@ -402,10 +420,13 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				if(!aStar)
-					nav.SetDestination(patrolPoints[patrolNumber]);
-				else
-					aStarPath2.targetPosition = patrolPoints[patrolNumber];
+				if(!dead)
+				{
+					if(!aStar)
+						nav.SetDestination(patrolPoints[patrolNumber]);
+					else
+						aStarPath2.targetPosition = patrolPoints[patrolNumber];
+				}
 			}
 			//If suspicious then move to last known position of player
 			else if(overallStatus == statuses.suspicious)
@@ -413,28 +434,36 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				if(!aStar)
-					nav.SetDestination(lastKnownPos);
-				else
-					aStarPath2.targetPosition = lastKnownPos;
+				if(!dead)
+				{
+					if(!aStar)
+						nav.SetDestination(lastKnownPos);
+					else
+					{
+						aStarPath2.SetDest(lastKnownPos, transform.position, true, this);
+						aStarPath2.targetPosition = lastKnownPos;
+					}
+				}
 			}
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
 			{
-				//TODO This should stop the player from getting too close depeing on weapon type. Once close enough begin shooting.
 				if(Vector3.Distance(transform.position, player.transform.position) > attackDistance)
 				{
 					playerAnim.SetBool("Walking", false);
 					playerAnim.SetBool("Running", true);
 					nav.speed = 3.5f;
-					if(!aStar)
-						nav.SetDestination(player.transform.position);
-					else
-						aStarPath2.targetPosition = player.transform.position;
+					if(!dead)
+					{
+						if(!aStar)
+							nav.SetDestination(player.transform.position);
+						else
+							aStarPath2.targetPosition = player.transform.position;
+					}
 				}
 				else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
 				{
-					Shoot();
+					Attack();
 				}
 			}
 		}
@@ -445,11 +474,13 @@ public class AI : MonoBehaviour {
 			{
 				if(Vector3.Distance(transform.position, startPos) > 5)
 				{
-					if(!aStar)
-						nav.SetDestination(startPos);
-					else
-						aStarPath2.targetPosition = startPos;
-
+					if(!dead)
+					{
+						if(!aStar)
+							nav.SetDestination(startPos);
+						else
+							aStarPath2.targetPosition = startPos;
+					}
 					playerAnim.SetBool("Walking", true);
 					playerAnim.SetBool("Running", false);
 				}
@@ -466,10 +497,13 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
-				if(!aStar)
-					nav.SetDestination(lastKnownPos);
-				else
-					aStarPath2.targetPosition = lastKnownPos;
+				if(!dead)
+				{
+					if(!aStar)
+						nav.SetDestination(lastKnownPos);
+					else
+						aStarPath2.targetPosition = lastKnownPos;
+				}
 			}
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
@@ -477,58 +511,48 @@ public class AI : MonoBehaviour {
 				playerAnim.SetBool("Walking", false);
 				playerAnim.SetBool("Running", true);
 				nav.speed = 3.5f;
-				if(!aStar)
-					nav.SetDestination(player.transform.position);
-				else
-					aStarPath2.targetPosition = player.transform.position;
-
-				if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance)
+				if(Vector3.Distance(transform.position, player.transform.position) > attackDistance)
 				{
-					Shoot();
+					if(!dead)
+					{
+						if(!aStar)
+							nav.SetDestination(player.transform.position);
+						else
+							aStarPath2.targetPosition = player.transform.position;
+					}
 				}
+				else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance)
+				{
+					if(!dead)
+					{
+						if(!aStar)
+							nav.SetDestination(player.transform.position);
+						else
+							aStarPath2.targetPosition = player.transform.position;
+					}
 
+					Attack();
+				}
 			}
 		}
 	}
 
-	void Shoot()
+	public void Attack()
 	{
 		playerAnim.SetBool("Walking", false);
 		playerAnim.SetBool("Running", false);
 
-		//Checks if you can see the player
-		if(playerSeen)
+		nav.SetDestination(player.transform.position);
+
+		if(Time.time > lastAttack + attackSpeed)
 		{
-			//Is there bullets in the mag
-			if(currentMag > 0)
-			{
-				//Adds small delay to the next shot and creates a bullet
-				if(Time.time >= lastShot + shotSpeed)
-				{
-					shotPosition = transform.position;
-					Instantiate(bullet, shotPosition, transform.rotation);
-					lastShot = Time.time;
-					currentMag --;
-					shooting = true;
-				}
-			}
-			//If no bullets in mag and not reloading then start reloading
-			else if(!reloading)
-			{
-				reloading = true;
-				finishReloading = Time.time + reloadTime;
-			}
-			//If reloading stop reloading after reload time
-			else if(reloading && Time.time >= finishReloading)
-			{
-				reloading = false;
-				currentMag = bulletMag;
-			}
-		}
-		//If raycast isn't directly hitting player contnue shooting for a short period then stop
-		else if(shooting && lastShot + 2  < Time.time)
-		{
-			shooting = false;
+			Player playerHealth = player.GetComponent<Player>();
+
+			playerHealth.health -= 25;
+
+			lastAttack = Time.time;
+			playerAnim.SetTrigger("Attack");
+
 		}
 	}
 }

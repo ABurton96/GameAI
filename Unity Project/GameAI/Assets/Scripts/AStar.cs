@@ -19,8 +19,8 @@ public class AStar : MonoBehaviour {
 	public Vector3 playerPosRounded;
 	public Vector3 other;
 	public List<Node> path = new List<Node>();
-	public bool playerSeen;
 	public bool drawGizmos;
+	public Vector3 startPos;
 
 	public class Node
 	{
@@ -139,6 +139,7 @@ public class AStar : MonoBehaviour {
 		AI aStarOn = AI.GetComponent<AI>();
 		if(aStarOn.aStar)
 			GetPath(GetClosestNode(targetPosition), GetClosestNode(transform.position), true);
+
 	}
 
 	void OnDrawGizmos()
@@ -216,6 +217,11 @@ public class AStar : MonoBehaviour {
 			return nearest;
 	}
 
+	public void SetDest(Vector3 endPos, Vector3 startPos, bool move, AI AIScript)
+	{
+		GetPath(GetClosestNode(endPos), GetClosestNode(startPos), true);
+	}
+
 	public float GetPath(Node end, Node start, bool move)
 	{
 		//Finds the start and end node
@@ -248,14 +254,17 @@ public class AStar : MonoBehaviour {
 			
 				//Removes any path that xwas there before and add all the nodes for the next path
 				path.Clear();
+				//AIScript.path.Clear();
 				
 				while(currentNode != startNode)
 				{
 					path.Add(currentNode);
+					//AIScript.path.Add(currentNode.position);
 					currentNode = currentNode.previousNode;
 				}
 
 				path.Reverse();
+				//AIScript.path.Reverse();
 
 				break;
 			}
@@ -285,6 +294,7 @@ public class AStar : MonoBehaviour {
 		//Once path has been checked start to move
 		if(move)
 			Move();
+			//AIScript.Move();
 		else
 		{
 			float soundTravelled = 0f;
@@ -299,24 +309,7 @@ public class AStar : MonoBehaviour {
 		return 0f;
 	}
 
-	public void Move()
-	{
-		//If there is still a path move the game object to the next node
-		if(path.Count > 0)
-		{
-			Vector3 targetPos = path[0].position - transform.position;
-			//Vector3 direction = Vector3.RotateTowards(transform.forward, targetPos, 0.5f, 2.0f);
 
-			Quaternion direction;
-			//if(playerSeen)
-			//	direction = Quaternion.LookRotation((player.transform.position + new Vector3(0,-0.6426952f,0)) - transform.position);
-			//else
-				direction = Quaternion.LookRotation(path[0].position - transform.position);
-			
-			transform.rotation = Quaternion.Lerp(transform.rotation, direction, 1);
-			transform.position = Vector3.Lerp(transform.position, path[0].position, 0.05f);
-		}
-	}
 
 	//Get all neighbouring nodes
 	public List<Node> GetNeighbour(Node node)
@@ -352,6 +345,24 @@ public class AStar : MonoBehaviour {
 		return neighbours;
 	}
 
+	public void Move()
+	{
+		//If there is still a path move the game object to the next node
+		if(path.Count > 0)
+		{
+			Vector3 targetPos = path[0].position - transform.position;
+
+			Quaternion direction;
+
+			direction = Quaternion.LookRotation(path[0].position - transform.position);
+			if(Vector3.Distance(player.transform.position, path[0].position) > 5)
+			{
+				transform.rotation = Quaternion.Lerp(transform.rotation, direction, 1);
+				transform.position = Vector3.Lerp(transform.position, path[0].position, 0.05f);
+			}
+		}
+	}
+
 	//Calculate the distance from starting node to the next node
 	public int GetDistance(Node start, Node check)
 	{
@@ -372,6 +383,9 @@ public class AStar : MonoBehaviour {
 	public float GetPathDistance(Vector3 startPosition, Vector3 endPosition)
 	{
 		float pathDistance;
+		AI script;
+		script = AI.GetComponent<AI>();
+
 		pathDistance = GetPath(GetClosestNode(startPosition), GetClosestNode(endPosition), false);
 		return pathDistance;
 	}

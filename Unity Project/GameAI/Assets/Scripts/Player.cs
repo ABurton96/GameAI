@@ -8,6 +8,7 @@ public class Player : MonoBehaviour {
 
 	public soundLevel sound;
 	public string soundLevelAI;
+	public float health;
 
 	void Update () 
 	{
@@ -28,6 +29,10 @@ public class Player : MonoBehaviour {
 		}
 
 		soundLevelAI = sound.ToString();
-	}
 
+		if(health <= 0)
+		{
+			Debug.Log("Dead");
+		}
+	}
 }
