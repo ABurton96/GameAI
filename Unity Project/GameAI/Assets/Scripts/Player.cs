@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Player : MonoBehaviour {
 	
@@ -9,6 +10,7 @@ public class Player : MonoBehaviour {
 	public soundLevel sound;
 	public string soundLevelAI;
 	public float health;
+	public GameObject dead;
 
 	void Update () 
 	{
@@ -32,7 +34,14 @@ public class Player : MonoBehaviour {
 
 		if(health <= 0)
 		{
-			Debug.Log("Dead");
+			dead.SetActive(true);
+			StartCoroutine(WaitAndLoad());
 		}
+	}
+
+	IEnumerator WaitAndLoad()
+	{
+		yield return new WaitForSeconds(2);
+		SceneManager.LoadScene(0);
 	}
 }

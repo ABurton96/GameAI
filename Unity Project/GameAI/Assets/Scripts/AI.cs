@@ -28,8 +28,9 @@ public class AI : MonoBehaviour {
 	private bool suspiciousCheck;
 	private float suspiciousTimerEnd;
 	public UnityEngine.AI.NavMeshAgent nav;
-	public bool aStar;
 	public Transform eyePos;
+	[Header(" If using AStar uncheck Nav Mesh Agent")]
+	public bool aStar;
 
 	[Space(10)]
 	[Header(" - Sight variables")]
@@ -67,8 +68,13 @@ public class AI : MonoBehaviour {
 	public float attackSpeed;
 	public float attackDistance;
 	public float lastAttack;
-	public float health = 100;
+	public float health;
+	public float healthStart;
+	public float healthBarPercent; 
+	public Transform healthBar; 
 	public bool dead;
+	public GameObject ragdoll; 
+
 
 	public CapsuleCollider capCol;
 	public GameObject sword;
@@ -92,7 +98,7 @@ public class AI : MonoBehaviour {
 			}
 		}
 
-	
+		health = healthStart;
 	}
 
 	void Update () 
@@ -117,16 +123,24 @@ public class AI : MonoBehaviour {
 		{
 			Dead();
 		}
+
+		//Sets health bar
+		healthBarPercent = (health / healthStart) * 0.2542284f;
+		healthBar.localScale = new Vector3(healthBarPercent, healthBar.localScale.y, healthBar.localScale.z);
 	}
 
 	void Dead()
 	{
 		dead = true;
-		playerAnim.enabled = false;
-		capCol.enabled = false;
+		//playerAnim.enabled = false;
+		//capCol.enabled = false;
 		//sword.transform.parent = null;
-		if(!aStar)
-			nav.SetDestination(transform.position);
+
+		Instantiate(ragdoll, transform.position, transform.rotation);
+		Destroy(this.gameObject);
+
+		//if(!aStar)
+			//nav.SetDestination(transform.position);
 	}
 
 	void OnTriggerStay(Collider other) 

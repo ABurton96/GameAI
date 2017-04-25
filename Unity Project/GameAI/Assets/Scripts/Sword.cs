@@ -33,12 +33,19 @@ public class Sword : MonoBehaviour {
 
 			if(!attackOnce)
 			{
-				ai.health -= 25;
 				ContactPoint contact = other.contacts[0];
 				GameObject bloodCreated;
 				bloodCreated = Instantiate(blood, contact.point , Quaternion.Euler(new Vector3(-60.5f,0,0)));
 				bloodCreated.transform.parent = other.gameObject.transform;
 				attackOnce = true;
+				if(ai.viewAngle > 140)
+				{
+					ai.health -= 100;
+				}
+				else
+				{
+					ai.health -= 25;
+				}
 			}
 		}
 	}
