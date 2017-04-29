@@ -11,6 +11,7 @@ public class Player : MonoBehaviour {
 	public string soundLevelAI;
 	public float health;
 	public GameObject dead;
+	public TextMesh healthText;
 
 	void Update () 
 	{
@@ -31,12 +32,14 @@ public class Player : MonoBehaviour {
 		}
 
 		soundLevelAI = sound.ToString();
-
+		
 		if(health <= 0)
 		{
 			dead.SetActive(true);
 			StartCoroutine(WaitAndLoad());
 		}
+
+		healthText.text = "Health: " + health.ToString();
 	}
 
 	IEnumerator WaitAndLoad()

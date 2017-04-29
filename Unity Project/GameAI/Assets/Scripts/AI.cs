@@ -160,13 +160,12 @@ public class AI : MonoBehaviour {
 			//Starts a for loop running through each viewcone
 			for(int i = 0; i < viewconeInfo.Length; i++)
 			{	
-
 				//Checks to see if the player is within the viewcone angle and is close enough
 				if(viewAngle < viewconeInfo[i].angle * 0.5f && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance || Vector3.Distance(transform.position, player.transform.position) < 3)
 				{				
 					Vector3 AIPos = new Vector3(0,0,0);
 					AIPos = transform.position;
-					AIPos.y = 1f;
+					AIPos.y = transform.position.y + 1f;
 
 					Vector3 norm;
 					norm = playerDistance.normalized;
@@ -562,11 +561,10 @@ public class AI : MonoBehaviour {
 		{
 			Player playerHealth = player.GetComponent<Player>();
 
-			playerHealth.health -= 25;
+			playerHealth.health -= 10;
 
 			lastAttack = Time.time;
 			playerAnim.SetTrigger("Attack");
-
 		}
 	}
 }

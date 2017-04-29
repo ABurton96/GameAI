@@ -44,7 +44,7 @@ public class Sword : MonoBehaviour {
 				}
 				else
 				{
-					ai.health -= 25;
+					ai.health -= 50;
 				}
 			}
 		}
