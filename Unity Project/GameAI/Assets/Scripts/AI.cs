@@ -59,9 +59,11 @@ public class AI : MonoBehaviour {
 	[Space(10)]
 	[Header(" - Pathing variables")]
 	public GameObject waypointsGameObj;
-	public List<Vector3> patrolPoints;
+	public List<Waypoints> patrolPoints;
 	public int patrolNumber;
 	public Vector3 startPos;
+	public bool startedWait = false;
+	public float waitEnd;
 
 	[Space(10)]
 	[Header(" - Attacking variables")]
@@ -75,10 +77,11 @@ public class AI : MonoBehaviour {
 	public bool dead;
 	public GameObject ragdoll; 
 
-
 	public CapsuleCollider capCol;
 	public GameObject sword;
 	public Vector3 pos;
+
+
 
 	void Start () 
 	{
@@ -93,7 +96,8 @@ public class AI : MonoBehaviour {
 		{
 			if(waypointsGameObj.transform.GetChild(i).tag == "Waypoint")
 			{
-				patrolPoints.Add(waypointsGameObj.transform.GetChild(i).position);
+				//patrolPoints.Add(waypointsGameObj.transform.GetChild(i).position);
+				patrolPoints.Add(waypointsGameObj.transform.GetChild(i).GetComponent<Waypoints>());
 				waypointsGameObj.transform.GetChild(i).gameObject.SetActive(false);
 			}
 		}
@@ -132,15 +136,9 @@ public class AI : MonoBehaviour {
 	void Dead()
 	{
 		dead = true;
-		//playerAnim.enabled = false;
-		//capCol.enabled = false;
-		//sword.transform.parent = null;
 
 		Instantiate(ragdoll, transform.position, transform.rotation);
 		Destroy(this.gameObject);
-
-		//if(!aStar)
-			//nav.SetDestination(transform.position);
 	}
 
 	void OnTriggerStay(Collider other) 
@@ -169,14 +167,16 @@ public class AI : MonoBehaviour {
 
 					Vector3 norm;
 					norm = playerDistance.normalized;
-					norm.y = (norm.y - norm.y) - 0.1f;
+					norm.y = (norm.y - norm.y);
 
 					//Raycasts from the AI to the playable character
+					//if (Physics.Raycast(AIPos, player.transform.position, out hit))
 					//if (Physics.Raycast(transform.position, playerDistance.normalized, out hit))
 					if (Physics.Raycast(AIPos, norm, out hit))
 					{
 						//Draws a debug ray inside of the scene view. Only use it to help see where the raycast is going
 						Debug.DrawRay(transform.position, playerDistance.normalized, Color.blue);
+						Debug.DrawRay(AIPos, playerDistance.normalized, Color.green);
 						Debug.DrawRay(AIPos, norm, Color.red);
 						//Debug.DrawRay(AIPos, playerPos.normalized, Color.red);
 
@@ -264,16 +264,14 @@ public class AI : MonoBehaviour {
 			Player play =  player.GetComponent<Player>();
 
 			//If less that hearingDistance - 10% then alert
-			if(soundTravelled <= hearingDistance - (hearingDistance / 20) && play.soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /10) && play.soundLevelAI == "Quite")
+			if(soundTravelled <= hearingDistance - (hearingDistance / 50) && play.soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /30) && play.soundLevelAI == "Quite")
 			{
-				//soundAlertStatus = statuses.alert;
 				Debug.Log("Alert");
 				SetSoundAlert(statuses.alert);
 			}
 			//If between 90% and 100% of hearing distance then suspicious. Needs to add alert timer.
-			else if(soundTravelled > hearingDistance - (hearingDistance / 10) && soundTravelled < hearingDistance && play.soundLevelAI == "Loud")
+			else if(soundTravelled > hearingDistance - (hearingDistance / 50) && soundTravelled < hearingDistance && play.soundLevelAI == "Loud")
 			{
-				//soundAlertStatus = statuses.suspicious;
 				Debug.Log("Suspicious");
 				SetSoundAlert(statuses.suspicious);
 			}
@@ -306,7 +304,7 @@ public class AI : MonoBehaviour {
 			point.SetBool("Suspicious", false);
 			break;
 
-			//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
+		//If suspicious then check if already alert. If not check how long they have been in the viewcone for. If more than the check timer then become alert 
 		case statuses.suspicious:	
 			if(sightAlertStatus == statuses.alert)
 			{
@@ -413,6 +411,8 @@ public class AI : MonoBehaviour {
 	void Patrol()
 	{
 		AStar aStarPath2 = GetComponent<AStar>();
+		Waypoints time;
+		float delayTime = 0;
 
 		//If waypoints are set up then patrol between them
 		if(patrolPoints.Count >= 1)
@@ -420,8 +420,25 @@ public class AI : MonoBehaviour {
 			//If already patrolling and near waypoint then change to next waypoint. After this then path to next waypoint
 			if(overallStatus == statuses.patrolling)
 			{
-				if(Vector3.Distance(patrolPoints[patrolNumber], transform.position) < 5)
+				if(Vector3.Distance(patrolPoints[patrolNumber].position, transform.position) < 2)
 				{
+					if(!startedWait)
+					{
+						startedWait = true;
+						nav.angularSpeed = 0;
+
+						time = patrolPoints[patrolNumber];
+						delayTime = time.GetComponent<Waypoints>().delay;
+						waitEnd = Time.time + delayTime;
+					}
+				}
+
+				if(startedWait && Time.time > waitEnd)
+				{
+					nav.angularSpeed = 200;
+
+					startedWait = false;
+
 					patrolNumber ++;
 
 					if(patrolNumber >= patrolPoints.Count)
@@ -430,20 +447,34 @@ public class AI : MonoBehaviour {
 					}
 				}
 
-				playerAnim.SetBool("Walking", true);
-				playerAnim.SetBool("Running", false);
+				if(!startedWait)
+				{
+					playerAnim.SetBool("Walking", true);
+					playerAnim.SetBool("Running", false);
+				}
+				else
+				{
+					playerAnim.SetBool("Walking", false);
+					playerAnim.SetBool("Running", false);
+				}
+
 				nav.speed = 1.5f;
-				if(!dead)
+
+				if(!dead  && !startedWait)
 				{
 					if(!aStar)
-						nav.SetDestination(patrolPoints[patrolNumber]);
+					{
+						nav.SetDestination(patrolPoints[patrolNumber].position);
+					}
 					else
-						aStarPath2.targetPosition = patrolPoints[patrolNumber];
+						aStarPath2.targetPosition = patrolPoints[patrolNumber].position;
 				}
 			}
 			//If suspicious then move to last known position of player
 			else if(overallStatus == statuses.suspicious)
 			{
+				nav.angularSpeed = 200;
+
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
 				nav.speed = 1.5f;
@@ -461,6 +492,8 @@ public class AI : MonoBehaviour {
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
 			{
+				nav.angularSpeed = 200;
+
 				if(Vector3.Distance(transform.position, player.transform.position) > attackDistance)
 				{
 					playerAnim.SetBool("Walking", false);

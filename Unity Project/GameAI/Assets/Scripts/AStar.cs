@@ -254,17 +254,14 @@ public class AStar : MonoBehaviour {
 			
 				//Removes any path that xwas there before and add all the nodes for the next path
 				path.Clear();
-				//AIScript.path.Clear();
 				
 				while(currentNode != startNode)
 				{
 					path.Add(currentNode);
-					//AIScript.path.Add(currentNode.position);
 					currentNode = currentNode.previousNode;
 				}
 
 				path.Reverse();
-				//AIScript.path.Reverse();
 
 				break;
 			}
