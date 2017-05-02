@@ -12,6 +12,7 @@ public class Player : MonoBehaviour {
 	public float health;
 	public GameObject dead;
 	public TextMesh healthText;
+	public CharacterController characterCon;
 
 	void Update () 
 	{
@@ -33,6 +34,20 @@ public class Player : MonoBehaviour {
 		else
 		{
 			sound = soundLevel.Nothing;
+		}
+
+
+		if(Input.GetKey(KeyCode.LeftShift))
+		{
+			characterCon.height = 1.8f;
+		}
+		else if(Input.GetKey(KeyCode.LeftControl))
+		{
+			characterCon.height = 1;
+		}
+		else
+		{
+			characterCon.height = 1.8f;
 		}
 
 		soundLevelAI = sound.ToString();
