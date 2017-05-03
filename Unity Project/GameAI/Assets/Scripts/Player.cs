@@ -16,6 +16,7 @@ public class Player : MonoBehaviour {
 
 	void Update () 
 	{
+		//Takes inputs and sets sound level depending on keys pressed
 		if(Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D))
 		{
 			if(Input.GetKey(KeyCode.LeftShift))
@@ -36,7 +37,7 @@ public class Player : MonoBehaviour {
 			sound = soundLevel.Nothing;
 		}
 
-
+		//Chages heigh of collider if crouching or standing
 		if(Input.GetKey(KeyCode.LeftShift))
 		{
 			characterCon.height = 1.8f;
@@ -51,7 +52,8 @@ public class Player : MonoBehaviour {
 		}
 
 		soundLevelAI = sound.ToString();
-		
+
+		//If dead display test then load menu
 		if(health <= 0)
 		{
 			dead.SetActive(true);
@@ -60,6 +62,7 @@ public class Player : MonoBehaviour {
 
 		healthText.text = "Health: " + health.ToString();
 
+		//Shortcut keys for loading scenes
 		if(Input.GetKeyDown(KeyCode.Keypad1))
 		{
 			SceneManager.LoadScene(1);
@@ -80,6 +83,7 @@ public class Player : MonoBehaviour {
 
 	IEnumerator WaitAndLoad()
 	{
+		//Wait 2 seconds then load menu
 		yield return new WaitForSeconds(2);
 		SceneManager.LoadScene(0);
 	}

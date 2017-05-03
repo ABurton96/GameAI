@@ -44,6 +44,7 @@ public class AI : MonoBehaviour {
 	private bool loseSightCheck;
 	private float loseSightTimerEnd;
 	private float currentTime;
+	private Vector3 AIPosition;
 
 	[Space(10)]
 	[Header(" - Sound variables")]
@@ -96,12 +97,12 @@ public class AI : MonoBehaviour {
 		{
 			if(waypointsGameObj.transform.GetChild(i).tag == "Waypoint")
 			{
-				//patrolPoints.Add(waypointsGameObj.transform.GetChild(i).position);
 				patrolPoints.Add(waypointsGameObj.transform.GetChild(i).GetComponent<Waypoints>());
 				waypointsGameObj.transform.GetChild(i).gameObject.SetActive(false);
 			}
 		}
 
+		//Sets health to the starting health
 		health = healthStart;
 	}
 
@@ -110,6 +111,7 @@ public class AI : MonoBehaviour {
 		//Calls patrol function
 		Patrol();
 
+		//Sets overal alert status depending on if the AI can hear/see the player
 		if(soundAlertStatus == statuses.alert || sightAlertStatus == statuses.alert)
 		{
 			overallStatus = statuses.alert;
@@ -123,10 +125,14 @@ public class AI : MonoBehaviour {
 			overallStatus = statuses.patrolling;
 		}
 
+		//If health is 0 or less then call dead function
 		if(health <= 0 && !dead)
 		{
 			Dead();
 		}
+
+
+		AIPosition = transform.position;
 
 		//Sets health bar
 		healthBarPercent = (health / healthStart) * 0.2542284f;
@@ -137,6 +143,7 @@ public class AI : MonoBehaviour {
 	{
 		dead = true;
 
+		//Spawns ragdoll character then deletes current AI
 		Instantiate(ragdoll, transform.position, transform.rotation);
 		Destroy(this.gameObject);
 	}
@@ -150,7 +157,6 @@ public class AI : MonoBehaviour {
 
 			//Calculates an angle from the AI player to the playable character
 			playerDistance = player.transform.position - transform.position;
-			//ViewAngle = Vector3.Angle(Vector3.forward, playerDistance);
 			viewAngle = Vector3.Angle(playerDistance, transform.forward);
 
 			//Sets playerSeen to false. If it doesnt get set back to true then the player wasn't seen in the last checks.
@@ -161,24 +167,18 @@ public class AI : MonoBehaviour {
 				//Checks to see if the player is within the viewcone angle and is close enough
 				if(viewAngle < viewconeInfo[i].angle * 0.5f && Vector3.Distance(transform.position, player.transform.position) <= viewconeInfo[i].distance || Vector3.Distance(transform.position, player.transform.position) < 3)
 				{				
-					Vector3 AIPos = new Vector3(0,0,0);
-					AIPos = transform.position;
-					AIPos.y = transform.position.y + 1f;
-
 					Vector3 norm;
 					norm = playerDistance.normalized;
 					norm.y = (norm.y - norm.y);
 
+					AIPosition.y = AIPosition.y + 1;
+
 					//Raycasts from the AI to the playable character
-					//if (Physics.Raycast(AIPos, player.transform.position, out hit))
-					//if (Physics.Raycast(transform.position, playerDistance.normalized, out hit))
-					if (Physics.Raycast(AIPos, norm, out hit))
+					if (Physics.Raycast(AIPosition, norm, out hit))
 					{
+
 						//Draws a debug ray inside of the scene view. Only use it to help see where the raycast is going
-						Debug.DrawRay(transform.position, playerDistance.normalized, Color.blue);
-						Debug.DrawRay(AIPos, playerDistance.normalized, Color.green);
-						Debug.DrawRay(AIPos, norm, Color.red);
-						//Debug.DrawRay(AIPos, playerPos.normalized, Color.red);
+						Debug.DrawRay(AIPosition, norm, Color.red);
 
 						//Checks to see if the raycast hits the player. If it doesn't then the player is behind an object
 						if(hit.collider != null && hit.collider.gameObject.tag == "Player")
@@ -264,13 +264,13 @@ public class AI : MonoBehaviour {
 			Player play =  player.GetComponent<Player>();
 
 			//If less that hearingDistance - 10% then alert
-			if(soundTravelled <= hearingDistance - (hearingDistance / 50) && play.soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /30) && play.soundLevelAI == "Quite")
+			if(soundTravelled <= hearingDistance - (hearingDistance / 80) && play.soundLevelAI == "Loud" || soundTravelled <= hearingDistance - (hearingDistance /70) && play.soundLevelAI == "Quite")
 			{
 				Debug.Log("Alert");
 				SetSoundAlert(statuses.alert);
 			}
-			//If between 90% and 100% of hearing distance then suspicious. Needs to add alert timer.
-			else if(soundTravelled > hearingDistance - (hearingDistance / 50) && soundTravelled < hearingDistance && play.soundLevelAI == "Loud")
+			//If between 80% and 100% of hearing distance then suspicious. Needs to add alert timer.
+			else if(soundTravelled > hearingDistance - (hearingDistance / 80) && soundTravelled < hearingDistance && play.soundLevelAI == "Loud")
 			{
 				Debug.Log("Suspicious");
 				SetSoundAlert(statuses.suspicious);
@@ -363,7 +363,7 @@ public class AI : MonoBehaviour {
 			soundAlertStatus = status;
 			noAudioCheck = false;
 			break;
-			//Check if the AI is already alert. If not check how long they have been in the the hearable distance for. If more than the check timer then audio status is alert
+		//Check if the AI is already alert. If not check how long they have been in the the hearable distance for. If more than the check timer then audio status is alert
 		case statuses.suspicious:	
 			if(soundAlertStatus == statuses.alert)
 			{
@@ -410,9 +410,11 @@ public class AI : MonoBehaviour {
 
 	void Patrol()
 	{
-		AStar aStarPath2 = GetComponent<AStar>();
+		AStar aStarPathPatrol = GetComponent<AStar>();
 		Waypoints time;
 		float delayTime = 0;
+
+		//All patrol functions have parts for both unityNav mesh and my A* algorithm
 
 		//If waypoints are set up then patrol between them
 		if(patrolPoints.Count >= 1)
@@ -467,7 +469,7 @@ public class AI : MonoBehaviour {
 						nav.SetDestination(patrolPoints[patrolNumber].position);
 					}
 					else
-						aStarPath2.targetPosition = patrolPoints[patrolNumber].position;
+						aStarPathPatrol.targetPosition = patrolPoints[patrolNumber].position;
 				}
 			}
 			//If suspicious then move to last known position of player
@@ -484,8 +486,8 @@ public class AI : MonoBehaviour {
 						nav.SetDestination(lastKnownPos);
 					else
 					{
-						aStarPath2.SetDest(lastKnownPos, transform.position, true, this);
-						aStarPath2.targetPosition = lastKnownPos;
+						aStarPathPatrol.SetDest(lastKnownPos, transform.position, true, this);
+						aStarPathPatrol.targetPosition = lastKnownPos;
 					}
 				}
 			}
@@ -504,7 +506,7 @@ public class AI : MonoBehaviour {
 						if(!aStar)
 							nav.SetDestination(player.transform.position);
 						else
-							aStarPath2.targetPosition = player.transform.position;
+							aStarPathPatrol.targetPosition = player.transform.position;
 					}
 				}
 				else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance && playerSeen)
@@ -525,7 +527,7 @@ public class AI : MonoBehaviour {
 						if(!aStar)
 							nav.SetDestination(startPos);
 						else
-							aStarPath2.targetPosition = startPos;
+							aStarPathPatrol.targetPosition = startPos;
 					}
 					playerAnim.SetBool("Walking", true);
 					playerAnim.SetBool("Running", false);
@@ -548,7 +550,7 @@ public class AI : MonoBehaviour {
 					if(!aStar)
 						nav.SetDestination(lastKnownPos);
 					else
-						aStarPath2.targetPosition = lastKnownPos;
+						aStarPathPatrol.targetPosition = lastKnownPos;
 				}
 			}
 			//If alert then path to player
@@ -564,7 +566,7 @@ public class AI : MonoBehaviour {
 						if(!aStar)
 							nav.SetDestination(player.transform.position);
 						else
-							aStarPath2.targetPosition = player.transform.position;
+							aStarPathPatrol.targetPosition = player.transform.position;
 					}
 				}
 				else if(Vector3.Distance(transform.position, player.transform.position) <=  attackDistance)
@@ -574,7 +576,7 @@ public class AI : MonoBehaviour {
 						if(!aStar)
 							nav.SetDestination(player.transform.position);
 						else
-							aStarPath2.targetPosition = player.transform.position;
+							aStarPathPatrol.targetPosition = player.transform.position;
 					}
 
 					Attack();
@@ -585,11 +587,14 @@ public class AI : MonoBehaviour {
 
 	public void Attack()
 	{
+		//Stops the walking/running animations
 		playerAnim.SetBool("Walking", false);
 		playerAnim.SetBool("Running", false);
 
+		//Makes sure AI is moving to the player
 		nav.SetDestination(player.transform.position);
 
+		//If time since attack is longer than attack speed then attack the player. Trigger the attacking animation, set attack time and remove health from player.
 		if(Time.time > lastAttack + attackSpeed)
 		{
 			Player playerHealth = player.GetComponent<Player>();

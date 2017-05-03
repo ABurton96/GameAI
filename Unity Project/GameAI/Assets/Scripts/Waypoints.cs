@@ -9,6 +9,7 @@ public class Waypoints : MonoBehaviour {
 
 	void Awake () 
 	{
+		//Sets position to its world position
 		position = transform.position;
 	}
 }

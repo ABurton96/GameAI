@@ -8,10 +8,10 @@ public class TestAIManager : MonoBehaviour {
 
 	void Update () 
 	{
+		//If no AI game object is in the scene then show prompt to escape back to menu
 		if(GameObject.Find("AI C Ragdoll") == null)
 		{
 			escHint.SetActive(true);
-
 		}
 	}
 }
