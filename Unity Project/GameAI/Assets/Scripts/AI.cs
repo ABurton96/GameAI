@@ -45,8 +45,9 @@ public class AI : MonoBehaviour {
 	private float loseSightTimerEnd;
 	private float currentTime;
 	private Vector3 AIPosition;
+    public float turnSpeed;
 
-	[Space(10)]
+    [Space(10)]
 	[Header(" - Sound variables")]
 	public float noAudioTimer;
 	public bool noAudioCheck;
@@ -133,6 +134,7 @@ public class AI : MonoBehaviour {
 
 
 		AIPosition = transform.position;
+        AIPosition.y = AIPosition.y + 1;
 
 		//Sets health bar
 		healthBarPercent = (health / healthStart) * 0.2542284f;
@@ -171,7 +173,7 @@ public class AI : MonoBehaviour {
 					norm = playerDistance.normalized;
 					norm.y = (norm.y - norm.y);
 
-					AIPosition.y = AIPosition.y + 1;
+					//AIPosition.y = AIPosition.y + 1;
 
 					//Raycasts from the AI to the playable character
 					if (Physics.Raycast(AIPosition, norm, out hit))
@@ -181,7 +183,7 @@ public class AI : MonoBehaviour {
 						Debug.DrawRay(AIPosition, norm, Color.red);
 
 						//Checks to see if the raycast hits the player. If it doesn't then the player is behind an object
-						if(hit.collider != null && hit.collider.gameObject.tag == "Player")
+						if(hit.collider != null && hit.collider.gameObject.tag == "Player" || Vector3.Distance(transform.position, player.transform.position) < 3)
 						{
 							//If the player hasn't already been seen then they have been now
 							if(!playerSeen)
@@ -437,7 +439,7 @@ public class AI : MonoBehaviour {
 
 				if(startedWait && Time.time > waitEnd)
 				{
-					nav.angularSpeed = 200;
+					nav.angularSpeed = turnSpeed;
 
 					startedWait = false;
 
@@ -475,7 +477,7 @@ public class AI : MonoBehaviour {
 			//If suspicious then move to last known position of player
 			else if(overallStatus == statuses.suspicious)
 			{
-				nav.angularSpeed = 200;
+				nav.angularSpeed = turnSpeed;
 
 				playerAnim.SetBool("Walking", true);
 				playerAnim.SetBool("Running", false);
@@ -494,7 +496,7 @@ public class AI : MonoBehaviour {
 			//If alert then path to player
 			else if(overallStatus == statuses.alert)
 			{
-				nav.angularSpeed = 200;
+				nav.angularSpeed = turnSpeed;
 
 				if(Vector3.Distance(transform.position, player.transform.position) > attackDistance)
 				{
